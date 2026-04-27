@@ -1,3 +1,1332 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+.dpy-table-room {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.08), transparent 26%),
+    radial-gradient(circle at 8% 88%, rgba(209, 166, 73, 0.12), transparent 28%),
+    linear-gradient(180deg, #17211e 0%, #0c1110 58%, #080a0a 100%);
+}
+
+.dpy-room-shell {
+  min-height: calc(100svh - 4rem);
+}
+
+.dpy-chat-panel {
+  min-width: 0;
+}
+
+.dpy-wood-frame {
+  background:
+    linear-gradient(180deg, rgba(31, 43, 39, 0.94), rgba(10, 15, 14, 0.96)),
+    radial-gradient(circle at 50% 0%, rgba(216, 182, 90, 0.2), transparent 34%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 30px 80px rgba(0, 0, 0, 0.52);
+}
+
+.dpy-wood-table {
+  background:
+    radial-gradient(ellipse at center, rgba(47, 105, 82, 0.96) 0%, rgba(24, 71, 56, 0.96) 52%, rgba(14, 42, 35, 0.98) 100%),
+    linear-gradient(180deg, #235746, #14332b);
+  box-shadow:
+    inset 0 0 0 12px rgba(219, 185, 99, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 0 -28px 56px rgba(0, 0, 0, 0.22),
+    0 26px 70px rgba(0, 0, 0, 0.48);
+}
+
+.dpy-seat {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  filter: drop-shadow(0 14px 20px rgba(0, 0, 0, 0.42));
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.dpy-seat.seat-bottom {
+  left: 1.5rem;
+  bottom: 1.15rem;
+}
+
+.dpy-table-room.is-spectator-table .dpy-seat.seat-bottom {
+  left: 50%;
+  bottom: 1.15rem;
+  transform: translateX(-50%);
+}
+
+.dpy-seat.seat-top {
+  left: 50%;
+  top: 1.25rem;
+  transform: translateX(-50%);
+}
+
+.dpy-seat.seat-left {
+  left: 1.25rem;
+  top: 38%;
+  transform: translateY(-50%);
+}
+
+.dpy-seat.seat-right {
+  right: 1.25rem;
+  top: 38%;
+  flex-direction: row-reverse;
+  transform: translateY(-50%);
+}
+
+.dpy-seat-avatar {
+  width: 5.25rem;
+  height: 5.25rem;
+  overflow: hidden;
+  border: 2px solid rgba(232, 201, 122, 0.78);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 34% 25%, #eef7ff, #6c7c8d 58%, #182028);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 900;
+  box-shadow:
+    0 0 0 5px rgba(11, 16, 15, 0.82),
+    0 14px 32px rgba(0, 0, 0, 0.42);
+}
+
+.dpy-seat-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dpy-seat-info {
+  min-width: 8rem;
+  border: 1px solid rgba(232, 201, 122, 0.22);
+  border-radius: 0.85rem;
+  background: rgba(10, 16, 15, 0.78);
+  padding: 0.55rem 0.7rem;
+  backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.dpy-seat.is-turn .dpy-seat-avatar {
+  animation: dpy-seat-pulse 1.25s ease-in-out infinite;
+}
+
+.dpy-seat.is-bomber .dpy-seat-avatar {
+  border-color: rgba(255, 108, 80, 0.96);
+  box-shadow:
+    0 0 0 5px rgba(44, 15, 12, 0.86),
+    0 0 28px rgba(255, 79, 58, 0.52),
+    0 14px 32px rgba(0, 0, 0, 0.42);
+}
+
+.dpy-seat.is-watchable {
+  cursor: pointer;
+}
+
+.dpy-seat.is-watchable:hover .dpy-seat-info,
+.dpy-seat.is-watched .dpy-seat-info {
+  border-color: rgba(66, 167, 216, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 24px rgba(66, 167, 216, 0.2);
+}
+
+.dpy-seat.is-watched .dpy-seat-avatar {
+  border-color: rgba(66, 167, 216, 0.9);
+  box-shadow:
+    0 0 0 5px rgba(10, 21, 28, 0.82),
+    0 0 30px rgba(66, 167, 216, 0.5),
+    0 14px 32px rgba(0, 0, 0, 0.42);
+}
+
+.dpy-bomb-badge {
+  position: absolute;
+  left: 50%;
+  top: -2.05rem;
+  z-index: 8;
+  transform: translateX(-50%);
+  display: flex;
+  height: 2.25rem;
+  min-width: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 215, 137, 0.78);
+  background: linear-gradient(180deg, #fff1b8, #f06645 58%, #7c1f18);
+  font-size: 1.45rem;
+  box-shadow:
+    0 0 0 4px rgba(18, 10, 8, 0.72),
+    0 0 30px rgba(255, 95, 56, 0.72);
+  animation: dpy-bomb-pop 1.1s ease-in-out infinite;
+}
+
+.dpy-turn-star,
+.dpy-host-crown {
+  position: absolute;
+  right: -0.2rem;
+  top: -0.2rem;
+  border-radius: 999px;
+  background: #d8b65a;
+  color: #111816;
+  padding: 0.35rem;
+  box-shadow: 0 0 24px rgba(216, 182, 90, 0.68);
+}
+
+.dpy-host-crown {
+  left: -0.2rem;
+  right: auto;
+  background: #a64f3e;
+  color: white;
+}
+
+.dpy-seat-open-hand,
+.dpy-seat-played-move {
+  position: absolute;
+  pointer-events: none;
+}
+
+.dpy-seat-open-hand {
+  z-index: 24;
+}
+
+.dpy-seat-played-move {
+  z-index: 26;
+}
+
+.dpy-seat-open-hand {
+  border-radius: 0.55rem;
+  padding: 0.16rem;
+  background: rgba(3, 6, 6, 0.24);
+  backdrop-filter: blur(2px);
+}
+
+.dpy-seat-open-hand.seat-top {
+  left: 50%;
+  top: 6.95rem;
+  transform: translateX(-50%);
+}
+
+.dpy-seat-open-hand.seat-left {
+  left: clamp(8rem, 15vw, 14rem);
+  top: 29%;
+  transform: translateY(-50%);
+}
+
+.dpy-seat-open-hand.seat-right {
+  right: clamp(8rem, 15vw, 14rem);
+  top: 29%;
+  transform: translateY(-50%);
+}
+
+.dpy-seat-open-hand.seat-bottom {
+  left: 50%;
+  top: auto;
+  bottom: 7.55rem;
+  transform: translateX(-50%);
+}
+
+.dpy-table-room.is-spectator-table .dpy-seat-open-hand.seat-bottom {
+  left: 50%;
+  top: auto;
+  bottom: 7.15rem;
+  transform: translateX(-50%);
+}
+
+.dpy-table-room.is-spectator-table .dpy-seat-open-hand.seat-left,
+.dpy-table-room.is-spectator-table .dpy-seat-open-hand.seat-right {
+  top: 22%;
+}
+
+.dpy-seat-played-move {
+  display: flex;
+  min-height: 5.2rem;
+  min-width: 5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(5, 8, 8, 0.28);
+  padding: 0.35rem 0.55rem;
+  box-shadow:
+    0 16px 28px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+.dpy-seat-played-move.seat-top {
+  left: 50%;
+  top: 8.4rem;
+  transform: translateX(-50%);
+}
+
+.dpy-seat-played-move.seat-left {
+  left: clamp(10rem, 17vw, 16rem);
+  top: 34%;
+  transform: translateY(-50%);
+}
+
+.dpy-seat-played-move.seat-right {
+  right: clamp(10rem, 17vw, 16rem);
+  top: 34%;
+  transform: translateY(-50%);
+}
+
+.dpy-seat-played-move.seat-bottom {
+  left: 50%;
+  top: auto;
+  bottom: 15.45rem;
+  transform: translateX(-50%);
+}
+
+.dpy-table-room.is-spectator-table .dpy-seat-played-move.seat-bottom {
+  bottom: 13.1rem;
+}
+
+.dpy-table-room.is-spectator-table .dpy-seat-played-move.seat-top {
+  top: 12.35rem;
+}
+
+.dpy-table-room.is-spectator-table .dpy-seat-played-move.seat-left,
+.dpy-table-room.is-spectator-table .dpy-seat-played-move.seat-right {
+  top: 35.5%;
+}
+
+.dpy-seat-played-move.is-pass {
+  min-width: 5.8rem;
+  border-color: rgba(216, 182, 90, 0.34);
+  color: #ffe7a0;
+  font-size: 1.22rem;
+  font-weight: 900;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.dpy-seat-card-strip {
+  display: flex;
+  max-width: inherit;
+  overflow: visible;
+  padding: 0.15rem 0.25rem 0.28rem;
+  scrollbar-width: none;
+}
+
+.dpy-seat-card-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.dpy-open-mini-card {
+  position: relative;
+  flex: 0 0 auto;
+  width: 2.38rem;
+  height: 3.38rem;
+  border: 1px solid rgba(202, 209, 216, 0.82);
+  border-radius: 0.28rem;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f4f6f8 100%);
+  box-shadow:
+    -2px 0 5px rgba(0, 0, 0, 0.12),
+    0 7px 12px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.dpy-open-mini-card.is-red {
+  color: #dc2626;
+}
+
+.dpy-open-mini-card.is-black {
+  color: #111827;
+}
+
+.dpy-open-mini-rank,
+.dpy-open-mini-suit {
+  position: absolute;
+  left: 0.2rem;
+  display: block;
+}
+
+.dpy-open-mini-rank {
+  top: 0.18rem;
+  font-size: 0.95rem;
+}
+
+.dpy-open-mini-suit {
+  top: 1.05rem;
+  font-size: 0.82rem;
+}
+
+.dpy-seat-open-hand.is-revealed-hand .dpy-seat-card-strip {
+  padding: 0;
+}
+
+.dpy-seat-open-hand.is-revealed-hand .dpy-open-mini-card {
+  width: 3.5rem;
+  height: 4.88rem;
+  border-radius: 0.42rem;
+}
+
+.dpy-seat-open-hand.is-revealed-hand .dpy-open-mini-rank {
+  left: 0.3rem;
+  top: 0.24rem;
+  font-size: 1.38rem;
+}
+
+.dpy-seat-open-hand.is-revealed-hand .dpy-open-mini-suit {
+  left: 0.3rem;
+  top: 1.52rem;
+  font-size: 1.12rem;
+}
+
+.dpy-seat-open-hand.is-revealed-hand .dpy-open-mini-card + .dpy-open-mini-card {
+  margin-left: -2.05rem;
+}
+
+.dpy-seat-played-move.is-table-played .dpy-seat-card-strip {
+  padding: 0.06rem 0.18rem 0.16rem;
+}
+
+.dpy-seat-played-move.is-table-played .dpy-seat-card-strip.is-played .dpy-open-mini-card + .dpy-open-mini-card {
+  margin-left: -0.88rem;
+}
+
+.dpy-seat-played-move.is-table-played .dpy-open-mini-card {
+  width: 3.5rem;
+  height: 4.88rem;
+  border-radius: 0.42rem;
+}
+
+.dpy-seat-played-move.is-table-played .dpy-open-mini-rank {
+  left: 0.3rem;
+  top: 0.24rem;
+  font-size: 1.38rem;
+}
+
+.dpy-seat-played-move.is-table-played .dpy-open-mini-suit {
+  left: 0.3rem;
+  top: 1.52rem;
+  font-size: 1.12rem;
+}
+
+.dpy-table-notice {
+  border: 1px solid rgba(238, 211, 145, 0.28);
+  border-radius: 1rem;
+  padding: 0.72rem 1.1rem 0.82rem;
+  background: rgba(8, 13, 12, 0.78);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  animation: dpy-notice-in 220ms ease-out;
+}
+
+.dpy-table-notice.tone-warning {
+  border-color: rgba(216, 182, 90, 0.52);
+  background: rgba(67, 49, 20, 0.82);
+}
+
+.dpy-table-notice.tone-danger {
+  border-color: rgba(255, 108, 80, 0.62);
+  background: rgba(72, 20, 17, 0.86);
+  animation: dpy-notice-in 220ms ease-out, dpy-danger-glow 1.35s ease-in-out infinite;
+}
+
+.dpy-table-notice.tone-success {
+  border-color: rgba(89, 218, 164, 0.48);
+  background: rgba(18, 71, 52, 0.84);
+}
+
+.dpy-table-notice-title {
+  color: #fffaf0;
+  font-size: clamp(1.36rem, 2.1vw, 2.02rem);
+  font-weight: 900;
+  line-height: 1.12;
+  text-shadow: 0 12px 30px rgba(0, 0, 0, 0.38);
+}
+
+.dpy-table-notice-subtitle {
+  margin-top: 0.35rem;
+  color: rgba(255, 250, 240, 0.72);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.dpy-action-dock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 5.15rem;
+  border: 1px solid rgba(238, 211, 145, 0.18);
+  border-radius: 999px;
+  background: rgba(7, 11, 10, 0.76);
+  padding: 0.72rem 1rem;
+  box-shadow:
+    0 22px 44px rgba(0, 0, 0, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.dpy-game-button {
+  min-width: 7.25rem;
+  min-height: 3.45rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 0.65rem 1.2rem;
+  color: white;
+  font-size: 1.22rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow:
+    0 12px 26px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.dpy-game-button:hover:not(:disabled),
+.dpy-game-button.is-active {
+  filter: brightness(1.08);
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.dpy-game-button.is-active {
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.12),
+    0 0 26px rgba(216, 182, 90, 0.34),
+    0 12px 26px rgba(0, 0, 0, 0.26);
+}
+
+.dpy-game-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.dpy-game-button:disabled,
+.dpy-icon-button:disabled {
+  opacity: 0.43;
+  cursor: not-allowed;
+}
+
+.dpy-game-button-yellow {
+  background: linear-gradient(180deg, #d8b65a, #a87727);
+  color: #111816;
+}
+
+.dpy-game-button-gold {
+  background: linear-gradient(180deg, #f0d58b, #c48d37);
+  color: #111816;
+}
+
+.dpy-game-button-blue {
+  background: linear-gradient(180deg, #3b9dc7, #176b96);
+}
+
+.dpy-game-button-red {
+  background: linear-gradient(180deg, #d6624e, #96342a);
+}
+
+.dpy-icon-button {
+  width: 3.45rem;
+  height: 3.45rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  color: white;
+  background: linear-gradient(180deg, #3c7f67, #1f5647);
+  box-shadow:
+    0 12px 26px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.dpy-icon-button.is-active {
+  box-shadow:
+    0 0 0 3px rgba(89, 218, 164, 0.18),
+    0 0 28px rgba(89, 218, 164, 0.42);
+}
+
+.dpy-hand-rack-wrap {
+  min-height: 9.8rem;
+  overflow-x: hidden;
+  overflow-y: visible;
+  padding: 1.15rem 1rem 0.75rem;
+  scrollbar-width: none;
+}
+
+.dpy-hand-rack-wrap::-webkit-scrollbar {
+  display: none;
+}
+
+.dpy-hand-rack {
+  position: relative;
+  height: calc(var(--card-height, 131px) + 1.2rem);
+  margin: 0 auto;
+}
+
+.dpy-rack-card {
+  position: absolute;
+  top: 0.55rem;
+  width: var(--card-width, 108px);
+  height: var(--card-height, 131px);
+  overflow: hidden;
+  border: 1px solid rgba(176, 183, 190, 0.8);
+  border-radius: 0.58rem;
+  background:
+    radial-gradient(circle at 50% 58%, rgba(255, 255, 255, 0.92), rgba(245, 247, 249, 0.96) 52%, rgba(229, 233, 237, 0.98) 100%);
+  box-shadow:
+    -4px 0 8px rgba(0, 0, 0, 0.12),
+    0 13px 24px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  transform: translateY(0);
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+}
+
+.dpy-rack-card:not(.is-disabled):hover {
+  transform: translateY(-7px);
+  filter: brightness(1.02);
+}
+
+.dpy-rack-card.is-selected {
+  border: 2px solid #42a7d8;
+  transform: translateY(-24px);
+  box-shadow:
+    -4px 0 8px rgba(0, 0, 0, 0.12),
+    0 0 0 3px rgba(66, 167, 216, 0.24),
+    0 16px 26px rgba(0, 0, 0, 0.34);
+}
+
+.dpy-rack-card.is-swap {
+  border: 2px solid #d8b65a;
+  box-shadow:
+    -4px 0 8px rgba(0, 0, 0, 0.12),
+    0 0 0 3px rgba(216, 182, 90, 0.26),
+    0 16px 26px rgba(0, 0, 0, 0.34);
+}
+
+.dpy-rack-card.is-swapped {
+  animation: dpy-card-new 1.25s ease-in-out;
+  border: 2px solid #59daa4;
+}
+
+.dpy-rack-card.is-disabled {
+  cursor: default;
+}
+
+.dpy-rack-corner {
+  position: absolute;
+  left: calc(0.48rem * var(--card-scale, 1));
+  top: calc(0.38rem * var(--card-scale, 1));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: calc(1.55rem * var(--card-scale, 1));
+  font-size: calc(1.74rem * var(--card-scale, 1));
+  font-weight: 900;
+  line-height: 0.92;
+}
+
+.dpy-rack-corner-bottom {
+  inset: auto calc(0.48rem * var(--card-scale, 1)) calc(0.38rem * var(--card-scale, 1)) auto;
+  transform: rotate(180deg);
+}
+
+.dpy-rack-suit {
+  position: absolute;
+  left: 50%;
+  top: 51%;
+  transform: translate(-50%, -50%);
+  font-size: calc(3.35rem * var(--card-scale, 1));
+  font-weight: 900;
+  line-height: 1;
+  opacity: 0.16;
+}
+
+.dpy-card-tag {
+  position: absolute;
+  left: 50%;
+  top: calc(0.35rem * var(--card-scale, 1));
+  z-index: 5;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  border-radius: 999px;
+  background: #d8b65a;
+  color: #111816;
+  padding: calc(0.18rem * var(--card-scale, 1)) calc(0.5rem * var(--card-scale, 1));
+  font-size: calc(0.68rem * var(--card-scale, 1));
+  font-weight: 900;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+}
+
+@keyframes dpy-notice-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes dpy-danger-glow {
+  0%, 100% {
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42), 0 0 0 rgba(255, 92, 72, 0);
+  }
+  50% {
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42), 0 0 34px rgba(255, 92, 72, 0.52);
+  }
+}
+
+@keyframes dpy-seat-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 5px rgba(11, 16, 15, 0.82),
+      0 14px 32px rgba(0, 0, 0, 0.42),
+      0 0 0 rgba(216, 182, 90, 0);
+  }
+  50% {
+    box-shadow:
+      0 0 0 5px rgba(11, 16, 15, 0.82),
+      0 14px 32px rgba(0, 0, 0, 0.42),
+      0 0 36px rgba(216, 182, 90, 0.72);
+  }
+}
+
+@keyframes dpy-bomb-pop {
+  0%, 100% {
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-3px) scale(1.08);
+  }
+}
+
+@keyframes dpy-card-new {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  35% {
+    transform: translateY(-24px);
+    box-shadow:
+      -4px 0 8px rgba(0, 0, 0, 0.12),
+      0 0 0 3px rgba(89, 218, 164, 0.28),
+      0 16px 26px rgba(0, 0, 0, 0.34);
+  }
+}
+
+@media (max-width: 1024px) {
+  .dpy-seat-avatar {
+    width: 4.25rem;
+    height: 4.25rem;
+  }
+
+  .dpy-seat-info {
+    min-width: 7rem;
+  }
+
+  .dpy-game-button {
+    min-width: 5.8rem;
+    min-height: 3.1rem;
+    font-size: 1.02rem;
+  }
+}
+
+@media (max-width: 1023px) {
+  .dpy-room-shell {
+    height: auto !important;
+    overflow-y: auto !important;
+  }
+
+  .dpy-room-main {
+    display: flex !important;
+    height: auto !important;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .dpy-room-table-panel {
+    height: min(72svh, 720px);
+    min-height: 560px;
+  }
+
+  .dpy-chat-panel {
+    min-height: 22rem;
+    max-height: min(42svh, 30rem);
+    border-top: 1px solid rgba(120, 53, 15, 0.5);
+    border-left: 0;
+  }
+
+  .dpy-chat-panel > .flex-1 {
+    min-height: 8rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .dpy-room-header {
+    height: auto !important;
+    min-height: 3.5rem;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.45rem;
+    padding: 0.55rem 0.75rem;
+  }
+
+  .dpy-room-status {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 0.15rem;
+    scrollbar-width: none;
+  }
+
+  .dpy-room-status::-webkit-scrollbar {
+    display: none;
+  }
+
+  .dpy-room-status > * {
+    flex: 0 0 auto;
+  }
+
+  .dpy-room-table-panel {
+    height: calc(100svh - 8.7rem);
+    min-height: 530px;
+  }
+
+  .dpy-table-room {
+    min-height: 530px;
+  }
+
+  .dpy-table-room .dpy-wood-frame {
+    inset: 0.35rem;
+    border-radius: 1.1rem;
+  }
+
+  .dpy-table-room .dpy-wood-table {
+    inset-inline: 0.75rem;
+    top: 3.6rem;
+    bottom: 8.6rem;
+    border-radius: 1.35rem;
+    box-shadow:
+      inset 0 0 0 6px rgba(219, 185, 99, 0.11),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+      inset 0 -20px 42px rgba(0, 0, 0, 0.24),
+      0 18px 46px rgba(0, 0, 0, 0.42);
+  }
+
+  .dpy-seat.seat-top {
+    top: 0.7rem;
+  }
+
+  .dpy-seat.seat-left,
+  .dpy-seat.seat-right {
+    top: 28%;
+  }
+
+  .dpy-seat.seat-left {
+    left: 0.75rem;
+  }
+
+  .dpy-seat.seat-right {
+    right: 0.75rem;
+  }
+
+  .dpy-seat.seat-bottom {
+    left: 0.75rem;
+    bottom: 8.9rem;
+  }
+
+  .dpy-table-room.is-spectator-table .dpy-seat.seat-bottom {
+    left: 50%;
+    bottom: 0.95rem;
+    transform: translateX(-50%);
+  }
+
+  .dpy-seat-avatar {
+    width: 3.35rem;
+    height: 3.35rem;
+    font-size: 1.35rem;
+    box-shadow:
+      0 0 0 3px rgba(11, 16, 15, 0.82),
+      0 10px 22px rgba(0, 0, 0, 0.36);
+  }
+
+  .dpy-seat-info {
+    display: none;
+  }
+
+  .dpy-turn-star,
+  .dpy-host-crown {
+    padding: 0.25rem;
+  }
+
+  .dpy-bomb-badge {
+    top: -1.75rem;
+    height: 2rem;
+    min-width: 2rem;
+    font-size: 1.22rem;
+  }
+
+  .dpy-seat-open-hand {
+    padding: 0.12rem;
+  }
+
+  .dpy-seat-open-hand.seat-top {
+    top: 4.75rem;
+  }
+
+  .dpy-seat-open-hand.seat-left {
+    left: 4.9rem;
+    top: 25%;
+    transform: translateY(-50%);
+  }
+
+  .dpy-seat-open-hand.seat-right {
+    right: 4.9rem;
+    top: 25%;
+    transform: translateY(-50%);
+  }
+
+  .dpy-seat-open-hand.seat-bottom {
+    left: 50%;
+    top: auto;
+    bottom: 6.15rem;
+    transform: translateX(-50%);
+  }
+
+  .dpy-table-room.is-spectator-table .dpy-seat-open-hand.seat-bottom {
+    left: 50%;
+    top: auto;
+    bottom: 5.6rem;
+    transform: translateX(-50%);
+  }
+
+  .dpy-table-room.is-spectator-table .dpy-seat-open-hand.seat-left,
+  .dpy-table-room.is-spectator-table .dpy-seat-open-hand.seat-right {
+    top: 20%;
+  }
+
+  .dpy-seat-played-move {
+    min-height: 3.75rem;
+    min-width: 4rem;
+    border-radius: 0.62rem;
+    padding: 0.24rem 0.32rem;
+  }
+
+  .dpy-seat-played-move.seat-top {
+    top: 6.2rem;
+  }
+
+  .dpy-table-room.is-spectator-table .dpy-seat-played-move.seat-top {
+    top: 8.55rem;
+  }
+
+  .dpy-seat-played-move.seat-left {
+    left: 4.85rem;
+    top: 32%;
+    transform: translateY(-50%);
+  }
+
+  .dpy-seat-played-move.seat-right {
+    right: 4.85rem;
+    top: 32%;
+    transform: translateY(-50%);
+  }
+
+  .dpy-seat-played-move.seat-bottom {
+    left: 50%;
+    top: auto;
+    bottom: 11.95rem;
+    transform: translateX(-50%);
+  }
+
+  .dpy-table-room.is-spectator-table .dpy-seat-played-move.seat-bottom {
+    bottom: 9.25rem;
+  }
+
+  .dpy-table-room.is-spectator-table .dpy-seat-played-move.seat-left,
+  .dpy-table-room.is-spectator-table .dpy-seat-played-move.seat-right {
+    top: 33.5%;
+  }
+
+  .dpy-seat-played-move.is-pass {
+    min-width: 4rem;
+    font-size: 0.98rem;
+  }
+
+  .dpy-open-mini-card {
+    width: 1.86rem;
+    height: 2.62rem;
+    border-radius: 0.22rem;
+  }
+
+  .dpy-open-mini-rank {
+    left: 0.16rem;
+    top: 0.14rem;
+    font-size: 0.76rem;
+  }
+
+  .dpy-open-mini-suit {
+    left: 0.16rem;
+    top: 0.84rem;
+    font-size: 0.66rem;
+  }
+
+  .dpy-seat-open-hand.is-revealed-hand .dpy-open-mini-card + .dpy-open-mini-card {
+    margin-left: -1.44rem;
+  }
+
+  .dpy-seat-played-move.is-table-played .dpy-seat-card-strip {
+    padding: 0.04rem 0.14rem 0.12rem;
+  }
+
+  .dpy-seat-open-hand.is-revealed-hand .dpy-open-mini-card,
+  .dpy-seat-played-move.is-table-played .dpy-open-mini-card {
+    width: 2.34rem;
+    height: 3.28rem;
+    border-radius: 0.28rem;
+  }
+
+  .dpy-seat-open-hand.is-revealed-hand .dpy-open-mini-rank,
+  .dpy-seat-played-move.is-table-played .dpy-open-mini-rank {
+    left: 0.2rem;
+    top: 0.17rem;
+    font-size: 0.94rem;
+  }
+
+  .dpy-seat-open-hand.is-revealed-hand .dpy-open-mini-suit,
+  .dpy-seat-played-move.is-table-played .dpy-open-mini-suit {
+    left: 0.2rem;
+    top: 1.04rem;
+    font-size: 0.8rem;
+  }
+
+  .dpy-seat-played-move.is-table-played .dpy-seat-card-strip.is-played .dpy-open-mini-card + .dpy-open-mini-card {
+    margin-left: -0.62rem;
+  }
+
+  .dpy-table-notice {
+    max-width: min(320px, 58vw);
+    padding: 0.5rem 0.68rem 0.58rem;
+    border-radius: 0.82rem;
+  }
+
+  .dpy-table-notice > :first-child {
+    width: 2.4rem;
+    height: 2.4rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .dpy-table-notice-title {
+    font-size: clamp(0.95rem, 4.1vw, 1.28rem);
+  }
+
+  .dpy-table-notice-subtitle {
+    font-size: 0.78rem;
+  }
+
+  .dpy-action-layer {
+    bottom: 8.6rem !important;
+    padding-inline: 0.45rem !important;
+  }
+
+  .dpy-action-dock {
+    max-width: calc(100vw - 0.8rem);
+    min-height: auto;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    border-radius: 1.15rem;
+    padding: 0.48rem 0.55rem;
+  }
+
+  .dpy-game-button {
+    min-width: 5.15rem;
+    min-height: 2.72rem;
+    padding: 0.5rem 0.78rem;
+    font-size: 0.92rem;
+  }
+
+  .dpy-icon-button {
+    width: 2.72rem;
+    height: 2.72rem;
+  }
+
+  .dpy-hand-rack-wrap {
+    min-height: 8.6rem;
+    overflow-x: hidden;
+    padding: 1rem 0.65rem 0.55rem;
+  }
+
+  .dpy-hand-rack {
+    height: calc(var(--card-height, 107px) + 1.35rem);
+  }
+
+  .dpy-rack-card {
+    width: var(--card-width, 88px);
+    height: var(--card-height, 107px);
+    border-radius: 0.5rem;
+  }
+
+  .dpy-rack-card:not(.is-disabled):hover {
+    transform: translateY(-4px);
+  }
+
+  .dpy-rack-card.is-selected {
+    transform: translateY(-20px);
+  }
+
+  .dpy-rack-corner {
+    left: calc(0.48rem * var(--card-scale, 1));
+    top: calc(0.38rem * var(--card-scale, 1));
+    font-size: calc(1.74rem * var(--card-scale, 1));
+  }
+
+  .dpy-rack-corner-bottom {
+    inset: auto calc(0.48rem * var(--card-scale, 1)) calc(0.38rem * var(--card-scale, 1)) auto;
+  }
+
+  .dpy-rack-suit {
+    font-size: calc(3.35rem * var(--card-scale, 1));
+  }
+
+  .dpy-card-tag {
+    padding: calc(0.18rem * var(--card-scale, 1)) calc(0.5rem * var(--card-scale, 1));
+    font-size: calc(0.68rem * var(--card-scale, 1));
+  }
+
+  .dpy-chat-panel {
+    max-height: none;
+    min-height: 26rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .dpy-room-table-panel {
+    height: calc(100svh - 8.85rem);
+    min-height: 500px;
+  }
+
+  .dpy-table-room {
+    min-height: 500px;
+  }
+
+  .dpy-seat-avatar {
+    width: 2.9rem;
+    height: 2.9rem;
+    font-size: 1.15rem;
+  }
+
+  .dpy-seat.seat-left,
+  .dpy-seat.seat-right {
+    top: 27%;
+  }
+
+  .dpy-seat.seat-bottom {
+    bottom: 7.8rem;
+  }
+
+  .dpy-table-room.is-spectator-table .dpy-seat.seat-bottom {
+    left: 50%;
+    bottom: 0.75rem;
+    transform: translateX(-50%);
+  }
+
+  .dpy-table-room .dpy-wood-table {
+    top: 3.25rem;
+    bottom: 7.55rem;
+  }
+
+  .dpy-action-layer {
+    bottom: 7.45rem !important;
+  }
+
+  .dpy-action-dock {
+    gap: 0.35rem;
+    padding: 0.42rem;
+  }
+
+  .dpy-game-button {
+    min-width: 4.55rem;
+    min-height: 2.5rem;
+    padding: 0.42rem 0.62rem;
+    font-size: 0.82rem;
+  }
+
+  .dpy-icon-button {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .dpy-hand-rack-wrap {
+    min-height: 7.55rem;
+    overflow-x: hidden;
+    padding: 0.85rem 0.45rem 0.45rem;
+  }
+
+  .dpy-hand-rack {
+    height: calc(var(--card-height, 87px) + 1.45rem);
+  }
+
+  .dpy-rack-card {
+    width: var(--card-width, 72px);
+    height: var(--card-height, 87px);
+  }
+
+  .dpy-rack-corner {
+    font-size: calc(1.74rem * var(--card-scale, 1));
+  }
+
+  .dpy-rack-suit {
+    font-size: calc(3.35rem * var(--card-scale, 1));
+  }
+
+  .dpy-table-notice {
+    max-width: min(320px, 58vw);
+    padding: 0.48rem 0.62rem 0.56rem;
+  }
+
+  .dpy-table-notice > :first-child {
+    width: 2.2rem;
+    height: 2.2rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .dpy-table-notice-title {
+    font-size: clamp(0.9rem, 3.8vw, 1.16rem);
+  }
+
+  .dpy-bomb-badge {
+    top: -1.45rem;
+    height: 1.65rem;
+    min-width: 1.65rem;
+    font-size: 1rem;
+  }
+
+  .dpy-seat-open-hand {
+    padding: 0.1rem;
+  }
+
+  .dpy-seat-open-hand.seat-top {
+    top: 4.22rem;
+  }
+
+  .dpy-seat-open-hand.seat-left {
+    left: 3.9rem;
+    top: 24.5%;
+    transform: translateY(-50%);
+  }
+
+  .dpy-seat-open-hand.seat-right {
+    right: 3.9rem;
+    top: 24.5%;
+    transform: translateY(-50%);
+  }
+
+  .dpy-seat-open-hand.seat-bottom {
+    left: 50%;
+    top: auto;
+    bottom: 5.35rem;
+    transform: translateX(-50%);
+  }
+
+  .dpy-table-room.is-spectator-table .dpy-seat-open-hand.seat-bottom {
+    left: 50%;
+    top: auto;
+    bottom: 4.9rem;
+    transform: translateX(-50%);
+  }
+
+  .dpy-table-room.is-spectator-table .dpy-seat-open-hand.seat-left,
+  .dpy-table-room.is-spectator-table .dpy-seat-open-hand.seat-right {
+    top: 19.5%;
+  }
+
+  .dpy-seat-played-move.seat-top {
+    top: 5.4rem;
+  }
+
+  .dpy-table-room.is-spectator-table .dpy-seat-played-move.seat-top {
+    top: 7.35rem;
+  }
+
+  .dpy-seat-played-move.seat-left {
+    left: 3.75rem;
+    top: 31%;
+    transform: translateY(-50%);
+  }
+
+  .dpy-seat-played-move.seat-right {
+    right: 3.75rem;
+    top: 31%;
+    transform: translateY(-50%);
+  }
+
+  .dpy-seat-played-move.seat-bottom {
+    left: 50%;
+    top: auto;
+    bottom: 10.9rem;
+    transform: translateX(-50%);
+  }
+
+  .dpy-table-room.is-spectator-table .dpy-seat-played-move.seat-bottom {
+    bottom: 8.25rem;
+  }
+
+  .dpy-table-room.is-spectator-table .dpy-seat-played-move.seat-left,
+  .dpy-table-room.is-spectator-table .dpy-seat-played-move.seat-right {
+    top: 33%;
+  }
+
+  .dpy-open-mini-card {
+    width: 1.55rem;
+    height: 2.2rem;
+  }
+
+  .dpy-open-mini-rank {
+    left: 0.14rem;
+    top: 0.12rem;
+    font-size: 0.64rem;
+  }
+
+  .dpy-open-mini-suit {
+    left: 0.14rem;
+    top: 0.72rem;
+    font-size: 0.56rem;
+  }
+
+  .dpy-seat-open-hand.is-revealed-hand .dpy-open-mini-card + .dpy-open-mini-card {
+    margin-left: -1.28rem;
+  }
+
+  .dpy-seat-open-hand.is-revealed-hand .dpy-open-mini-card,
+  .dpy-seat-played-move.is-table-played .dpy-open-mini-card {
+    width: 2.08rem;
+    height: 2.92rem;
+  }
+
+  .dpy-seat-open-hand.is-revealed-hand .dpy-open-mini-rank,
+  .dpy-seat-played-move.is-table-played .dpy-open-mini-rank {
+    left: 0.16rem;
+    top: 0.14rem;
+    font-size: 0.82rem;
+  }
+
+  .dpy-seat-open-hand.is-revealed-hand .dpy-open-mini-suit,
+  .dpy-seat-played-move.is-table-played .dpy-open-mini-suit {
+    left: 0.16rem;
+    top: 0.9rem;
+    font-size: 0.7rem;
+  }
+
+  .dpy-seat-played-move.is-table-played .dpy-seat-card-strip.is-played .dpy-open-mini-card + .dpy-open-mini-card {
+    margin-left: -0.55rem;
+  }
+}

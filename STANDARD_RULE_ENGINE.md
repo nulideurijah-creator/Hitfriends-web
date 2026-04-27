@@ -2,7 +2,7 @@
 
 完整可复制运行的 TypeScript 单模块见：
 
-`STANDARD_RULE_ENGINE.ts`
+`web-ui/src/game/ruleEngine.ts`
 
 该模块只负责规则引擎，不包含 UI、HTML、CSS、React、Vue、Supabase、WebSocket 或任何网络逻辑。
 
@@ -77,7 +77,7 @@ STRAIGHT < FLUSH < THREE_WITH_TWO < FOUR_WITH_ONE < STRAIGHT_FLUSH
 
 ## 2. 数据结构定义
 
-核心类型在 `STANDARD_RULE_ENGINE.ts` 中定义：
+核心类型在 `web-ui/src/game/ruleEngine.ts` 中定义：
 
 ```ts
 type Card = {

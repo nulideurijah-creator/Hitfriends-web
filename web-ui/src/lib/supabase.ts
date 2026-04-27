@@ -12,7 +12,14 @@ export function getSupabaseClient() {
   }
 
   if (!client) {
-    client = createClient(supabaseUrl, supabaseAnonKey);
+    client = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        storage: typeof window !== "undefined" ? window.sessionStorage : undefined,
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    });
   }
 
   return client;

@@ -1,94 +1,85 @@
-import { BookOpen, Target, AlertTriangle, Zap, Coins, Users } from "lucide-react";
+import type { ReactNode } from "react";
+import { AlertTriangle, BookOpen, Coins, ShieldAlert, Sparkles, Target, Users, Zap } from "lucide-react";
 
 export function Rules() {
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <div className="mb-12">
-        <h1 className="text-4xl font-extrabold text-white flex items-center gap-3">
-          <BookOpen className="w-8 h-8 text-indigo-400" />
+    <div className="mx-auto max-w-5xl px-6 py-10">
+      <div className="mb-10">
+        <p className="mb-2 text-sm font-bold text-indigo-300">RULE BOOK</p>
+        <h1 className="flex items-center gap-3 text-4xl font-black text-white">
+          <BookOpen className="h-8 w-8 text-indigo-300" />
           游戏规则说明
         </h1>
-        <p className="text-neutral-400 mt-4 text-lg">打朋友是一款适合 2-4 人熟人对局的纸牌游戏，以快速、刺激、互动为核心体验。</p>
+        <p className="mt-4 max-w-3xl text-lg leading-8 text-neutral-400">
+          打朋友网页版支持 2-4 人入座、多人观战、聊天、换牌、拍炸和全服积分结算。规则引擎负责所有出牌合法性判断。
+        </p>
       </div>
 
-      <div className="grid gap-8">
-        {/* Section 1 */}
-        <section className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 md:p-8">
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2 mb-6">
-            <Target className="w-6 h-6 text-blue-400" />
-            基础规则
-          </h2>
-          <div className="space-y-4 text-neutral-300 leading-relaxed">
-            <p><strong className="text-white">开局与人数：</strong> 游戏支持 2 到 4 名玩家入座。满 2 人即可由房主点击开始。</p>
-            <p><strong className="text-white">牌序大小：</strong> 2 {'>'} A {'>'} K {'>'} Q {'>'} J {'>'} 10 {'>'} 9 {'>'} 8 {'>'} 7 {'>'} 6 {'>'} 5 {'>'} 4 {'>'} 3</p>
-            <p><strong className="text-white">花色大小：</strong> 黑桃 ♠ {'>'} 红桃 ♥ {'>'} 梅花 ♣ {'>'} 方块 ♦</p>
-            <p><strong className="text-white">目标：</strong> 尽早出完手中的牌，第一个出完的玩家即为本局赢家，赢得所有积分。</p>
-          </div>
-        </section>
+      <div className="grid gap-6">
+        <RuleSection icon={<Target className="h-6 w-6 text-blue-300" />} title="基础规则">
+          <p>2-4 名玩家入座，所有玩家点击准备后才发牌。等待阶段任何人都看不到手牌。</p>
+          <p>第一个出完手牌的玩家获胜，输家按剩余牌数和本局倍率扣分，赢家获得总分。</p>
+        </RuleSection>
 
-        {/* Section 2 */}
-        <section className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 md:p-8">
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2 mb-6">
-            <Zap className="w-6 h-6 text-amber-400" />
-            特色玩法
-          </h2>
-          <div className="space-y-6 text-neutral-300 leading-relaxed">
-            <div>
-              <h3 className="text-lg font-bold text-amber-400 mb-2">换牌阶段</h3>
-              <p>发牌后，系统发起换牌投票。如果<strong>所有玩家</strong>都同意换牌，则进入换牌选择阶段。每位玩家选择 1 张手牌进行顺时针交换。这增加了开局的策略性和随机性。</p>
-            </div>
-            <div className="h-px w-full bg-neutral-800"></div>
-            <div>
-              <h3 className="text-lg font-bold text-red-400 mb-2">拍炸与抢拍</h3>
-              <p>换牌结束后，进入“是否拍炸”投票。</p>
-              <ul className="list-disc pl-5 mt-2 space-y-2 text-neutral-400">
-                <li>无人拍炸：倍率为 1x。</li>
-                <li>1 人拍炸：倍率升至 2x，该玩家获得优先出牌权。</li>
-                <li>多人拍炸：触发<strong>二次抢拍</strong>。继续抢拍者倍率升至 4x，放弃者保持 2x。最终继续抢拍且单牌最小的玩家获得优先出牌权。</li>
-              </ul>
-            </div>
-          </div>
-        </section>
+        <RuleSection icon={<Sparkles className="h-6 w-6 text-indigo-300" />} title="换牌规则">
+          <p>发牌后先进入换牌投票。只有所有玩家都同意换牌，才进入换牌选择。</p>
+          <p>换牌选择阶段每名玩家只能选 1 张牌，系统统一交换。换牌完成后，非拍炸情况下出牌权跟随全场手牌最小牌的拥有者。</p>
+        </RuleSection>
 
-        {/* Section 3 */}
-        <section className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 md:p-8">
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2 mb-6">
-            <Coins className="w-6 h-6 text-emerald-400" />
-            支持牌型与计分
-          </h2>
-          <div className="grid md:grid-cols-2 gap-8">
+        <RuleSection icon={<Zap className="h-6 w-6 text-red-300" />} title="拍炸与二次抢拍">
+          <ul className="list-disc space-y-2 pl-5 text-neutral-300">
+            <li>无人拍炸：所有玩家 1 倍，视为正常对局，全场最小牌玩家先手。</li>
+            <li>只有一人拍炸：所有玩家 2 倍，拍炸玩家先手。</li>
+            <li>多人拍炸：进入二次抢拍。</li>
+            <li>抢拍阶段所有拍炸者都继续：继续抢拍者 4 倍，未拍炸玩家 2 倍。</li>
+            <li>抢拍阶段有人继续、有人放弃：所有玩家都是 2 倍。</li>
+            <li>抢拍阶段所有拍炸者都放弃：所有玩家 1 倍，视为正常对局，全场最小牌玩家先手。</li>
+          </ul>
+        </RuleSection>
+
+        <RuleSection icon={<ShieldAlert className="h-6 w-6 text-amber-300" />} title="出牌与 PASS">
+          <p>玩家必须严格按当前出牌权操作。不是自己的回合时，出牌与 PASS 都会被拒绝。</p>
+          <p>如果上一家出牌后，当前玩家没有任何牌可以压过，页面会显示“你没有牌可以出”，3 秒后自动 PASS。</p>
+          <p>选错牌型时，页面会用醒目的错误提示说明原因，并保留已选手牌，方便重新调整。</p>
+        </RuleSection>
+
+        <RuleSection icon={<Coins className="h-6 w-6 text-emerald-300" />} title="积分榜">
+          <p>每局结算后，积分会累计到个人资料和全服积分榜。排行榜按累计积分排序，胜局数作为辅助排序。</p>
+        </RuleSection>
+
+        <section className="rounded-xl border border-indigo-400/20 bg-indigo-400/10 p-6">
+          <div className="flex items-start gap-4">
+            <Users className="mt-1 h-8 w-8 shrink-0 text-indigo-300" />
             <div>
-              <h3 className="font-bold text-white mb-4 border-b border-neutral-800 pb-2">出牌牌型</h3>
-              <ul className="space-y-3 text-neutral-400 text-sm">
-                <li><strong className="text-neutral-200">单张：</strong> 任意一张单牌。</li>
-                <li><strong className="text-neutral-200">对子：</strong> 两张点数相同的牌。</li>
-                <li><strong className="text-neutral-200">三张：</strong> 三张点数相同的牌。</li>
-                <li><strong className="text-neutral-200">连对：</strong> 三对或以上点数相连的对子（如 334455）。</li>
-                <li><strong className="text-neutral-200">炸弹：</strong> 四张点数相同的牌，可管任何非炸弹牌型。</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-bold text-white mb-4 border-b border-neutral-800 pb-2">积分结算</h3>
-              <ul className="space-y-3 text-neutral-400 text-sm">
-                <li><strong className="text-emerald-400">赢家收益：</strong> 所有输家剩余牌数 × 基础分 × 当前倍率的总和。</li>
-                <li><strong className="text-red-400">输家扣分：</strong> 自己剩余牌数 × 基础分 × 当前倍率。</li>
-                <li><strong className="text-neutral-200">春天/反春：</strong> 如果赢家出完牌时，某位输家一张牌未出，该输家扣分翻倍。</li>
-              </ul>
+              <h2 className="text-xl font-black text-indigo-100">观战说明</h2>
+              <p className="mt-2 text-sm leading-7 text-indigo-100/75">
+                观众可以看公共桌面、剩余牌数、倍率和聊天，但永远不能看到玩家私人手牌。等待阶段有空座时，登录观众可以申请入座。
+              </p>
             </div>
           </div>
         </section>
 
-        {/* Section 4 */}
-        <section className="bg-indigo-900/20 border border-indigo-500/20 rounded-2xl p-6 md:p-8 flex items-start gap-4">
-          <Users className="w-8 h-8 text-indigo-400 shrink-0 mt-1" />
-          <div>
-            <h2 className="text-xl font-bold text-indigo-300 mb-2">观战系统</h2>
-            <p className="text-indigo-200/70 text-sm leading-relaxed">
-              每个房间都支持好友旁观。观众可以看到对局的公共信息（比分、打出的牌、倍率）并参与聊天互动，但<strong>无法看到玩家的私人手牌</strong>。如果房间内有空座且在等待阶段，观众可以随时申请入座参与游戏。
+        <section className="rounded-xl border border-amber-400/20 bg-amber-400/10 p-6">
+          <div className="flex items-start gap-4">
+            <AlertTriangle className="mt-1 h-7 w-7 shrink-0 text-amber-300" />
+            <p className="text-sm leading-7 text-amber-100/80">
+              当前网页端以规则引擎为最终裁决：前端会提前提示，但真正能不能出牌，仍以后端写入前调用 `nextState` 的结果为准。
             </p>
           </div>
         </section>
       </div>
     </div>
+  );
+}
+
+function RuleSection({ children, icon, title }: { children: ReactNode; icon: ReactNode; title: string }) {
+  return (
+    <section className="rounded-xl border border-white/10 bg-neutral-950/70 p-6">
+      <h2 className="mb-4 flex items-center gap-2 text-2xl font-black text-white">
+        {icon}
+        {title}
+      </h2>
+      <div className="space-y-3 leading-8 text-neutral-300">{children}</div>
+    </section>
   );
 }

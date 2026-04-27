@@ -1,177 +1,252 @@
-import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router";
+import { Camera, Edit3, History, Loader2, LogOut, Settings, Shield, Trophy } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { Settings, LogOut, History, Edit3, Shield } from "lucide-react";
+import { fetchPlayerSettlementRecords, type PlayerSettlementRecord } from "../../lib/gameRoomService";
 
 export function Profile() {
-  const { user, logout } = useAuth();
+  const { user, loading, signOut, updateAvatar, updateNickname } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"stats" | "history" | "settings">("stats");
+  const [nickname, setNickname] = useState(user?.nickname ?? "");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [settlements, setSettlements] = useState<PlayerSettlementRecord[]>([]);
+  const [settlementsLoading, setSettlementsLoading] = useState(false);
+  const [settlementsError, setSettlementsError] = useState<string | null>(null);
 
-  if (!user) {
-    navigate("/login");
-    return null;
+  useEffect(() => {
+    if (user?.nickname) setNickname(user.nickname);
+  }, [user?.nickname]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSettlements() {
+      if (!user?.id) {
+        setSettlements([]);
+        return;
+      }
+      setSettlementsLoading(true);
+      setSettlementsError(null);
+      try {
+        const records = await fetchPlayerSettlementRecords(user.id);
+        if (!cancelled) setSettlements(records);
+      } catch (error) {
+        if (!cancelled) setSettlementsError(error instanceof Error ? error.message : "房间积分记录加载失败。");
+      } finally {
+        if (!cancelled) setSettlementsLoading(false);
+      }
+    }
+    loadSettlements();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  async function handleLogout() {
+    await signOut();
+    navigate("/");
   }
 
-  const handleLogout = () => {
-    logout();
-    navigate("/");
-  };
+  async function handleNickname(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setMessage(null);
+    try {
+      await updateNickname(nickname);
+      setMessage("昵称已更新。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "更新失败。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleAvatarUpload(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      await updateAvatar(file);
+      setMessage("头像已更新。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "头像上传失败，请确认 Supabase Storage 已配置。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-xl px-6 py-16 text-center">
+        <h1 className="text-3xl font-black text-white">请先登录</h1>
+        <p className="mt-2 text-neutral-400">登录后可以查看个人积分、胜率和账号设置。</p>
+        <Link to="/login?redirect=/profile" className="mt-6 inline-flex rounded-lg bg-indigo-600 px-5 py-3 font-black text-white">
+          去登录
+        </Link>
+      </div>
+    );
+  }
+
+  const winRate = user.gamesPlayed ? Math.round((user.wins / user.gamesPlayed) * 100) : 0;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-8">
-      {/* Left Sidebar */}
-      <div className="w-full md:w-64 shrink-0 space-y-6">
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 flex flex-col items-center text-center">
-          <div className="w-24 h-24 rounded-full bg-neutral-800 border-4 border-indigo-500 overflow-hidden mb-4 relative group cursor-pointer">
-            <img src={user.avatar} alt="avatar" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-white transition-all">
-              <Edit3 className="w-6 h-6" />
-            </div>
-          </div>
-          <h2 className="text-xl font-bold text-white mb-1">{user.nickname}</h2>
-          <p className="text-sm text-neutral-500 mb-4 font-mono">@{user.username}</p>
-          <div className="w-full bg-neutral-950 rounded-lg p-3 border border-neutral-800 flex items-center justify-center gap-2 text-sm text-neutral-300">
-            <Shield className="w-4 h-4 text-emerald-500" />
-            已实名认证
-          </div>
+    <div className="mx-auto grid max-w-5xl gap-6 px-6 py-10 lg:grid-cols-[280px_1fr]">
+      <aside className="rounded-xl border border-white/10 bg-neutral-950/70 p-6 text-center">
+        <label className="group relative mx-auto mb-4 flex h-28 w-28 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-indigo-400/30 bg-indigo-400/10 text-3xl font-black text-indigo-200">
+          <img src={user.avatar} alt={user.nickname} className="h-full w-full object-cover" />
+          <span className="absolute inset-0 hidden items-center justify-center bg-black/55 text-white group-hover:flex">
+            <Camera className="h-7 w-7" />
+          </span>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            className="sr-only"
+            onChange={(event) => handleAvatarUpload(event.target.files?.[0])}
+          />
+        </label>
+        <h2 className="text-2xl font-black text-white">{user.nickname}</h2>
+        <p className="mt-1 break-all text-xs font-mono text-neutral-500">{user.email}</p>
+        <div className="mt-5 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-sm font-bold text-emerald-200">
+          <Shield className="mr-1 inline h-4 w-4" />
+          Supabase Auth
         </div>
+      </aside>
 
-        <nav className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden flex flex-col">
-          <button 
-            onClick={() => setActiveTab("stats")}
-            className={`px-4 py-3 text-left text-sm font-medium flex items-center gap-3 transition-colors ${activeTab === 'stats' ? 'bg-indigo-600/10 text-indigo-400 border-l-2 border-indigo-500' : 'text-neutral-400 hover:text-white hover:bg-neutral-800 border-l-2 border-transparent'}`}
-          >
-            我的战绩
-          </button>
-          <button 
-            onClick={() => setActiveTab("history")}
-            className={`px-4 py-3 text-left text-sm font-medium flex items-center gap-3 transition-colors ${activeTab === 'history' ? 'bg-indigo-600/10 text-indigo-400 border-l-2 border-indigo-500' : 'text-neutral-400 hover:text-white hover:bg-neutral-800 border-l-2 border-transparent'}`}
-          >
-            对局记录
-          </button>
-          <button 
-            onClick={() => setActiveTab("settings")}
-            className={`px-4 py-3 text-left text-sm font-medium flex items-center gap-3 transition-colors ${activeTab === 'settings' ? 'bg-indigo-600/10 text-indigo-400 border-l-2 border-indigo-500' : 'text-neutral-400 hover:text-white hover:bg-neutral-800 border-l-2 border-transparent'}`}
-          >
+      <main className="space-y-6">
+        <section className="rounded-xl border border-white/10 bg-neutral-950/70 p-6">
+          <h3 className="mb-5 flex items-center gap-2 text-xl font-black text-white">
+            <Trophy className="h-5 w-5 text-amber-300" />
+            生涯统计
+          </h3>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <Stat label="累计积分" value={user.score} tone="amber" />
+            <Stat label="总局数" value={user.gamesPlayed} />
+            <Stat label="胜局" value={user.wins} tone="emerald" />
+            <Stat label="胜率" value={`${winRate}%`} />
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-white/10 bg-neutral-950/70 p-6">
+          <h3 className="mb-5 flex items-center gap-2 text-xl font-black text-white">
+            <History className="h-5 w-5 text-indigo-300" />
+            特色数据
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <InfoRow label="最佳单局得分" value={user.bestSingleScore} />
+            <InfoRow label="注册时间" value={new Date(user.createdAt).toLocaleDateString()} />
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-white/10 bg-neutral-950/70 p-6">
+          <h3 className="mb-5 flex items-center gap-2 text-xl font-black text-white">
+            <History className="h-5 w-5 text-amber-300" />
+            房间积分记录
+          </h3>
+          {settlementsLoading ? (
+            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-neutral-300">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              正在加载记录
+            </div>
+          ) : settlementsError ? (
+            <div className="rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">{settlementsError}</div>
+          ) : settlements.length === 0 ? (
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-neutral-400">暂无房间结算记录。</div>
+          ) : (
+            <div className="space-y-3">
+              {settlements.map((record) => {
+                const self = record.participants.find((player) => player.id === user.id);
+                const winner = record.participants.find((player) => player.id === record.winner_id);
+                return (
+                  <div key={record.id} className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <div className="font-black text-white">房间 {record.room_id}</div>
+                        <div className="mt-1 text-xs text-neutral-500">
+                          {new Date(record.settled_at).toLocaleString()} · {record.participants.length} 人局 · {record.score_history.length} 局
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-neutral-500">你的房间积分</div>
+                        <div className={`text-xl font-black ${Number(self?.score ?? 0) >= 0 ? "text-amber-300" : "text-red-300"}`}>
+                          {self?.score ?? 0}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mb-3 flex flex-wrap gap-2 text-xs text-neutral-300">
+                      {record.participants.map((participant) => (
+                        <span key={participant.id} className="rounded-full bg-black/25 px-2 py-1">
+                          {participant.name} {participant.score} ({formatSigned(participant.lastDelta)})
+                        </span>
+                      ))}
+                    </div>
+                    <div className="text-xs text-neutral-500">最近赢家：{winner?.name ?? "未记录"}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-xl border border-white/10 bg-neutral-950/70 p-6">
+          <h3 className="mb-5 flex items-center gap-2 text-xl font-black text-white">
+            <Settings className="h-5 w-5 text-indigo-300" />
             账号设置
+          </h3>
+          {message && <div className="mb-4 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">{message}</div>}
+          <form onSubmit={handleNickname} className="flex flex-col gap-3 sm:flex-row">
+            <input
+              value={nickname}
+              onChange={(event) => setNickname(event.target.value)}
+              className="min-w-0 flex-1 rounded-lg border border-white/10 bg-neutral-950 px-4 py-3 text-white outline-none focus:border-indigo-400"
+              placeholder="修改昵称"
+            />
+            <button disabled={busy} className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-3 font-black text-white disabled:opacity-50">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Edit3 className="h-4 w-4" />}
+              保存
+            </button>
+          </form>
+
+          <button
+            onClick={handleLogout}
+            className="mt-6 inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-400/10 px-5 py-3 font-black text-red-200"
+          >
+            <LogOut className="h-4 w-4" />
+            退出登录
           </button>
-        </nav>
-      </div>
+        </section>
+      </main>
+    </div>
+  );
+}
 
-      {/* Right Content */}
-      <div className="flex-1 bg-neutral-900 border border-neutral-800 rounded-2xl p-6 md:p-8 min-h-[400px]">
-        {activeTab === "stats" && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div>
-              <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                <History className="w-5 h-5 text-indigo-400" />
-                生涯统计
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-neutral-950 border border-neutral-800 p-4 rounded-xl text-center">
-                  <div className="text-neutral-500 text-sm mb-1">全服排名</div>
-                  <div className="text-2xl font-bold text-white">#142</div>
-                </div>
-                <div className="bg-neutral-950 border border-neutral-800 p-4 rounded-xl text-center">
-                  <div className="text-neutral-500 text-sm mb-1">累计积分</div>
-                  <div className="text-2xl font-bold text-amber-400 font-mono">{user.score}</div>
-                </div>
-                <div className="bg-neutral-950 border border-neutral-800 p-4 rounded-xl text-center">
-                  <div className="text-neutral-500 text-sm mb-1">总对局数</div>
-                  <div className="text-2xl font-bold text-white">328</div>
-                </div>
-                <div className="bg-neutral-950 border border-neutral-800 p-4 rounded-xl text-center">
-                  <div className="text-neutral-500 text-sm mb-1">胜率</div>
-                  <div className="text-2xl font-bold text-emerald-400">54.2%</div>
-                </div>
-              </div>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-bold text-white mb-4">特色数据</h3>
-              <div className="bg-neutral-950 border border-neutral-800 rounded-xl divide-y divide-neutral-800">
-                <div className="p-4 flex items-center justify-between">
-                  <span className="text-neutral-400">最佳单局得分</span>
-                  <span className="font-bold text-amber-400">+1,024</span>
-                </div>
-                <div className="p-4 flex items-center justify-between">
-                  <span className="text-neutral-400">拍炸次数</span>
-                  <span className="font-bold text-white">86 次</span>
-                </div>
-                <div className="p-4 flex items-center justify-between">
-                  <span className="text-neutral-400">抢拍成功率</span>
-                  <span className="font-bold text-white">32%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "history" && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <h3 className="text-lg font-bold text-white mb-6">最近对局 (近 10 场)</h3>
-            {[1, 2, 3, 4, 5].map((i) => {
-              const isWin = i % 3 !== 0;
-              return (
-                <div key={i} className="bg-neutral-950 border border-neutral-800 p-4 rounded-xl flex items-center justify-between hover:border-neutral-700 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-bold text-lg ${isWin ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-neutral-800 text-neutral-400 border border-neutral-700'}`}>
-                      {isWin ? '胜' : '负'}
-                    </div>
-                    <div>
-                      <div className="font-medium text-white">经典四人局</div>
-                      <div className="text-xs text-neutral-500 mt-1">2026-04-{26 - i} 14:30 • 房间 RM-{Math.floor(Math.random() * 10000)}</div>
-                    </div>
-                  </div>
-                  <div className={`font-mono font-bold text-xl ${isWin ? 'text-emerald-400' : 'text-neutral-400'}`}>
-                    {isWin ? '+' : ''}{isWin ? Math.floor(Math.random() * 100 + 50) : -Math.floor(Math.random() * 50 + 20)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {activeTab === "settings" && (
-          <div className="max-w-md animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-              <Settings className="w-5 h-5 text-indigo-400" />
-              账号设置
-            </h3>
-            
-            <form className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-neutral-400 mb-1">修改昵称</label>
-                <div className="flex gap-2">
-                  <input type="text" defaultValue={user.nickname} className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 transition-colors" />
-                  <button type="button" className="px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg font-medium transition-colors">保存</button>
-                </div>
-              </div>
-              
-              <div className="pt-4 border-t border-neutral-800">
-                <label className="block text-sm font-medium text-neutral-400 mb-1">修改密码</label>
-                <div className="space-y-3">
-                  <input type="password" placeholder="原密码" className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 transition-colors" />
-                  <input type="password" placeholder="新密码" className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 transition-colors" />
-                  <button type="button" className="w-full px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg font-medium transition-colors">更新密码</button>
-                </div>
-              </div>
-
-              <div className="pt-8 mt-8 border-t border-neutral-800">
-                <button 
-                  type="button" 
-                  onClick={handleLogout}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-lg font-bold transition-colors"
-                >
-                  <LogOut className="w-5 h-5" />
-                  退出登录
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+function Stat({ label, value, tone = "neutral" }: { label: string; value: string | number; tone?: "neutral" | "amber" | "emerald" }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4 text-center">
+      <div className="text-sm text-neutral-500">{label}</div>
+      <div className={`mt-2 text-2xl font-black ${tone === "amber" ? "text-amber-300" : tone === "emerald" ? "text-emerald-300" : "text-white"}`}>
+        {value}
       </div>
     </div>
   );
+}
+
+function InfoRow({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3">
+      <span className="text-neutral-400">{label}</span>
+      <span className="font-black text-white">{value}</span>
+    </div>
+  );
+}
+
+function formatSigned(value: number) {
+  return value > 0 ? `+${value}` : `${value}`;
 }
