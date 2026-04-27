@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GameAction } from "../../lib/ruleEngine";
+import { isEngineError, nextState } from "../../lib/ruleEngine";
 import { getSupabaseClient, isSupabaseConfigured } from "../../lib/supabase";
 import type { GameRoom, RoomMessage } from "../../lib/gameRoomService";
 import {
@@ -36,6 +37,99 @@ const roomCache = new Map<string, GameRoom | null>();
 const messageCache = new Map<string, RoomMessage[]>();
 const spectatorCache = new Map<string, RoomSpectator[]>();
 
+function updateReadyOptimistically(room: GameRoom, playerId: string, ready: boolean): GameRoom {
+  if (room.phase !== "waiting_ready" && room.phase !== "finished") return room;
+
+  const players = room.players.map((roomPlayer) => (roomPlayer.id === playerId ? { ...roomPlayer, ready } : roomPlayer));
+  const readyAtByPlayer = { ...(room.phaseData.readyAtByPlayer ?? {}) };
+  if (ready) readyAtByPlayer[playerId] = new Date().toISOString();
+  else delete readyAtByPlayer[playerId];
+
+  const allReady = players.length >= 2 && players.every((roomPlayer) => roomPlayer.ready);
+  return {
+    ...room,
+    players,
+    state: room.phase === "finished" ? null : room.state,
+    phase: "waiting_ready",
+    phaseData: {
+      ...room.phaseData,
+      readyAtByPlayer,
+      notice: allReady ? "所有玩家已准备，等待房主开始游戏。" : "等待玩家准备。",
+    },
+  };
+}
+
+function updateSwapVoteOptimistically(room: GameRoom, playerId: string, wantsSwap: boolean): GameRoom {
+  if (room.phase !== "swap_vote") return room;
+
+  const swapVotes = { ...(room.phaseData.swapVotes ?? {}), [playerId]: wantsSwap };
+  const playerIds = room.players.map((roomPlayer) => roomPlayer.id);
+  const declinedPlayerId = playerIds.find((id) => swapVotes[id] === false);
+  if (declinedPlayerId) {
+    const declinedName = room.players.find((roomPlayer) => roomPlayer.id === declinedPlayerId)?.name ?? "有玩家";
+    return {
+      ...room,
+      phase: "bomb_vote",
+      phaseData: {
+        ...room.phaseData,
+        swapVotes,
+        bombVotes: {},
+        notice: `${declinedName} 选择不换牌，跳过换牌，进入拍炸投票。`,
+      },
+    };
+  }
+
+  const allVoted = playerIds.length > 0 && playerIds.every((id) => id in swapVotes);
+  return {
+    ...room,
+    phase: allVoted ? "swap_select" : room.phase,
+    phaseData: {
+      ...room.phaseData,
+      swapVotes,
+      ...(allVoted ? { swapSelections: {}, notice: "全员同意换牌，请每人选择 1 张牌。" } : {}),
+    },
+  };
+}
+
+function updatePhaseVoteOptimistically(
+  room: GameRoom,
+  phase: "bomb_vote" | "bomb_conflict",
+  key: "bombVotes" | "bombConflictVotes",
+  playerId: string,
+  value: boolean,
+): GameRoom {
+  if (room.phase !== phase) return room;
+  return {
+    ...room,
+    phaseData: {
+      ...room.phaseData,
+      [key]: { ...((room.phaseData[key] as Record<string, boolean> | undefined) ?? {}), [playerId]: value },
+    },
+  };
+}
+
+function updateSwapSelectionOptimistically(room: GameRoom, playerId: string, cardId: string): GameRoom {
+  if (room.phase !== "swap_select") return room;
+  return {
+    ...room,
+    phaseData: {
+      ...room.phaseData,
+      swapSelections: { ...(room.phaseData.swapSelections ?? {}), [playerId]: cardId },
+    },
+  };
+}
+
+function updateActionOptimistically(room: GameRoom, action: GameAction): GameRoom {
+  if (!room.state) return room;
+  const result = nextState(room.state, action);
+  if (isEngineError(result)) return room;
+  return {
+    ...room,
+    state: result,
+    phase: result.gameStatus === "finished" ? "finished" : room.phase,
+  };
+}
+
 export function useGameRoom(roomId: string | undefined, options: UseGameRoomOptions = {}) {
   const [room, setRoomState] = useState<GameRoom | null>(() => (roomId ? roomCache.get(roomId) ?? null : null));
   const [messages, setMessagesState] = useState<RoomMessage[]>(() => (roomId ? messageCache.get(roomId) ?? [] : []));
@@ -46,6 +140,7 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
   const [message, setMessage] = useState<string | null>(null);
   const { player, loading: playerLoading } = usePlayerIdentity();
   const playerId = player?.id ?? null;
+  const optimisticBaseVersionRef = useRef<number | null>(null);
 
   const setRoom = useCallback(
     (nextRoom: GameRoom | null) => {
@@ -71,6 +166,18 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
     [roomId],
   );
 
+  const setRemoteRoom = useCallback(
+    (nextRoom: GameRoom | null) => {
+      const optimisticBaseVersion = optimisticBaseVersionRef.current;
+      if (nextRoom && optimisticBaseVersion !== null && nextRoom.version <= optimisticBaseVersion) {
+        return;
+      }
+      optimisticBaseVersionRef.current = null;
+      setRoom(nextRoom);
+    },
+    [setRoom],
+  );
+
   const refreshMessages = useCallback(async () => {
     if (!roomId || !isSupabaseConfigured) return [];
     const nextMessages = await fetchRoomMessages(roomId);
@@ -88,21 +195,29 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
   const refresh = useCallback(async () => {
     if (!roomId || !isSupabaseConfigured) return null;
     const latest = await fetchRoom(roomId);
-    setRoom(latest);
+    setRemoteRoom(latest);
     return latest;
-  }, [roomId]);
+  }, [roomId, setRemoteRoom]);
 
   const runRoomMutation = useCallback(
-    async (mutation: () => Promise<GameRoom | null>, successMessage?: string) => {
+    async (mutation: () => Promise<GameRoom | null>, successMessage?: string, optimisticUpdate?: (room: GameRoom) => GameRoom) => {
+      const previousRoom = roomId ? roomCache.get(roomId) ?? room : room;
+      if (optimisticUpdate && previousRoom) {
+        optimisticBaseVersionRef.current = previousRoom.version;
+        setRoom(optimisticUpdate(previousRoom));
+      }
       setBusy(true);
       setMessage(null);
       try {
         const updated = await mutation();
+        optimisticBaseVersionRef.current = null;
         if (updated) setRoom(updated);
         if (successMessage) setMessage(successMessage);
         await refreshMessages();
         return updated;
       } catch (error) {
+        optimisticBaseVersionRef.current = null;
+        if (previousRoom) setRoom(previousRoom);
         setMessage(error instanceof Error ? error.message : "操作失败。");
         await refresh();
         return null;
@@ -110,7 +225,7 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
         setBusy(false);
       }
     },
-    [refresh, refreshMessages],
+    [refresh, refreshMessages, room, roomId, setRoom],
   );
 
   const setWatchingPlayerId = useCallback(
@@ -151,7 +266,7 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
         setMessage("观战中不能操作牌局。");
         return null;
       }
-      return runRoomMutation(() => setPlayerReady(roomId, player.id, ready));
+      return runRoomMutation(() => setPlayerReady(roomId, player.id, ready), undefined, (room) => updateReadyOptimistically(room, player.id, ready));
     },
     [options.spectate, player, roomId, runRoomMutation],
   );
@@ -160,7 +275,7 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
     async (wantsSwap: boolean) => {
       if (!roomId || !player) return null;
       if (options.spectate) return null;
-      return runRoomMutation(() => submitSwapVote(roomId, player.id, wantsSwap));
+      return runRoomMutation(() => submitSwapVote(roomId, player.id, wantsSwap), undefined, (room) => updateSwapVoteOptimistically(room, player.id, wantsSwap));
     },
     [options.spectate, player, roomId, runRoomMutation],
   );
@@ -169,7 +284,7 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
     async (cardId: string) => {
       if (!roomId || !player) return null;
       if (options.spectate) return null;
-      return runRoomMutation(() => submitSwapSelection(roomId, player.id, cardId));
+      return runRoomMutation(() => submitSwapSelection(roomId, player.id, cardId), undefined, (room) => updateSwapSelectionOptimistically(room, player.id, cardId));
     },
     [options.spectate, player, roomId, runRoomMutation],
   );
@@ -178,7 +293,9 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
     async (wantsBomb: boolean) => {
       if (!roomId || !player) return null;
       if (options.spectate) return null;
-      return runRoomMutation(() => submitBombVote(roomId, player.id, wantsBomb));
+      return runRoomMutation(() => submitBombVote(roomId, player.id, wantsBomb), undefined, (room) =>
+        updatePhaseVoteOptimistically(room, "bomb_vote", "bombVotes", player.id, wantsBomb),
+      );
     },
     [options.spectate, player, roomId, runRoomMutation],
   );
@@ -187,7 +304,9 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
     async (continueBomb: boolean) => {
       if (!roomId || !player) return null;
       if (options.spectate) return null;
-      return runRoomMutation(() => submitBombConflictVote(roomId, player.id, continueBomb));
+      return runRoomMutation(() => submitBombConflictVote(roomId, player.id, continueBomb), undefined, (room) =>
+        updatePhaseVoteOptimistically(room, "bomb_conflict", "bombConflictVotes", player.id, continueBomb),
+      );
     },
     [options.spectate, player, roomId, runRoomMutation],
   );
@@ -296,7 +415,13 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
       setMessage(null);
 
       try {
+        const currentRoom = roomId ? roomCache.get(roomId) ?? room : room;
+        if (currentRoom) {
+          optimisticBaseVersionRef.current = currentRoom.version;
+          setRoom(updateActionOptimistically(currentRoom, action));
+        }
         const result = await applyRoomAction(roomId, action);
+        optimisticBaseVersionRef.current = null;
         if (result.room) setRoom(result.room);
 
         if (!result.ok) {
@@ -307,6 +432,7 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
         await refreshMessages();
         return true;
       } catch (error) {
+        optimisticBaseVersionRef.current = null;
         setMessage(error instanceof Error ? error.message : "操作失败。");
         await refresh();
         return false;
@@ -314,7 +440,7 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
         setBusy(false);
       }
     },
-    [options.spectate, refresh, refreshMessages, roomId],
+    [options.spectate, refresh, refreshMessages, room, roomId, setRoom],
   );
 
   const sendChat = useCallback(
@@ -408,7 +534,7 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
         (payload) => {
           if (payload.new) {
             const raw = payload.new as GameRoom & { phase_data?: GameRoom["phaseData"] };
-            setRoom({
+            setRemoteRoom({
               ...raw,
               mode: raw.mode === "ladder" ? "ladder" : "casual",
               phaseData: raw.phaseData ?? raw.phase_data ?? {},
@@ -447,7 +573,7 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
       window.clearInterval(interval);
       supabase.removeChannel(roomChannel);
     };
-  }, [refresh, refreshMessages, refreshSpectators, roomId]);
+  }, [refresh, refreshMessages, refreshSpectators, roomId, setRemoteRoom]);
 
   useEffect(() => {
     if (!options.spectate || !roomId || !player || !isSupabaseConfigured) return undefined;
