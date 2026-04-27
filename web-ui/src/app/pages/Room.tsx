@@ -1076,7 +1076,7 @@ function TableSeat({ seat }: { seat: SeatView }) {
           <span className="text-sky-100">{seat.handCount}张</span>
         </div>
         <div className="mt-1 flex items-center gap-2 text-[11px] font-black">
-          <span className={cn("rounded-full bg-black/24 px-2 py-0.5", scoreToneClass(seat.batchScore))}>本批 {formatSigned(seat.batchScore)}</span>
+          <span className={cn("rounded-full bg-black/24 px-2 py-0.5", scoreToneClass(seat.batchScore))}>积分 {formatSigned(seat.batchScore)}</span>
           {seat.lastDelta !== null && (
             <span className={cn("rounded-full bg-black/24 px-2 py-0.5", scoreToneClass(seat.lastDelta))}>本局 {formatSigned(seat.lastDelta)}</span>
           )}
