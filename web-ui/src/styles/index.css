@@ -962,10 +962,11 @@
 
   .dpy-mobile-card-count {
     position: absolute;
-    right: -0.45rem;
-    bottom: -0.35rem;
+    left: 50%;
+    bottom: -1.02rem;
+    transform: translateX(-50%);
     display: inline-flex;
-    min-width: 2.15rem;
+    min-width: 2.35rem;
     justify-content: center;
     border: 1px solid rgba(232, 201, 122, 0.36);
     border-radius: 999px;
@@ -980,10 +981,11 @@
 
   .dpy-mobile-score-count {
     position: absolute;
-    left: -0.45rem;
-    bottom: -0.35rem;
+    left: 50%;
+    bottom: -2.02rem;
+    transform: translateX(-50%);
     display: inline-flex;
-    min-width: 2.25rem;
+    min-width: 2.55rem;
     justify-content: center;
     border: 1px solid rgba(66, 167, 216, 0.36);
     border-radius: 999px;
@@ -1268,9 +1270,25 @@
     font-size: 1.15rem;
   }
 
+  .dpy-mobile-card-count,
+  .dpy-mobile-score-count {
+    min-width: 2.15rem;
+    padding: 0.1rem 0.32rem;
+    font-size: 0.6rem;
+    line-height: 1.1;
+  }
+
+  .dpy-mobile-card-count {
+    bottom: -0.88rem;
+  }
+
+  .dpy-mobile-score-count {
+    bottom: -1.72rem;
+  }
+
   .dpy-seat.seat-left,
   .dpy-seat.seat-right {
-    top: 27%;
+    top: 26%;
   }
 
   .dpy-seat.seat-bottom {
