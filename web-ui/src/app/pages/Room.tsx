@@ -697,6 +697,7 @@ function ActionDock({
   onPass,
   onPlay,
   onReady,
+  onSettle,
   onSpectate,
   onSwapCardSubmit,
   onSwapChoice,
