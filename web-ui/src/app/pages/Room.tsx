@@ -84,6 +84,7 @@ export function Room() {
   const isSpectatorMode = viewMode === "spectator";
   const {
     busy,
+    dismissRoom,
     dispatchAction,
     isConfigured,
     isMyTurn,
@@ -332,6 +333,14 @@ export function Room() {
     navigate("/lobby");
   }
 
+  async function handleDismissRoom() {
+    if (!myRoomPlayer?.isHost) return;
+    const confirmed = window.confirm("确定要解散这个房间吗？房间、聊天和观众记录都会被删除，其他玩家会回到大厅。");
+    if (!confirmed) return;
+    const ok = await dismissRoom();
+    if (ok) navigate("/lobby", { replace: true });
+  }
+
   if (settlementSnapshot) {
     return <SettlementComplete snapshot={settlementSnapshot} />;
   }
@@ -364,6 +373,15 @@ export function Room() {
         </div>
 
         <div className="dpy-room-status flex items-center gap-2 text-sm">
+          {myRoomPlayer?.isHost && (
+            <button
+              onClick={handleDismissRoom}
+              disabled={busy}
+              className="whitespace-nowrap rounded-lg border border-red-300/25 bg-red-500/10 px-3 py-2 text-xs font-black text-red-100 hover:bg-red-500/20 disabled:opacity-50"
+            >
+              解散房间
+            </button>
+          )}
           <InfoPill icon={<Users className="h-4 w-4" />}>{room?.players.length ?? 0}/4</InfoPill>
           <InfoPill icon={<Eye className="h-4 w-4" />}>{isSeated ? "玩家" : isSpectatorMode ? "观战" : "选择身份"}</InfoPill>
           <InfoPill icon={<Eye className="h-4 w-4" />}>{spectators.length} 观众</InfoPill>
@@ -588,8 +606,6 @@ function GameTable({
       })}
 
       <TableNoticePanel notice={notice} />
-
-      <CenterPile state={state} phase={phase} room={room} playerName={playerName} />
 
       <div className="dpy-action-layer absolute inset-x-0 bottom-[154px] z-30 flex justify-center px-4">
         <ActionDock
@@ -1005,35 +1021,10 @@ type TableNotice = {
 function TableNoticePanel({ notice }: { notice: TableNotice }) {
   return (
     <div className={cn("absolute left-1/2 top-1/2 z-20 w-[min(420px,56vw)] -translate-x-1/2 -translate-y-1/2 text-center dpy-table-notice", `tone-${notice.tone}`)}>
-      <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white">
-        {notice.icon}
-      </div>
       <div className="dpy-table-notice-title">{notice.title}</div>
       {notice.subtitle && <div className="dpy-table-notice-subtitle">{notice.subtitle}</div>}
     </div>
   );
-}
-
-function CenterPile({
-  phase,
-  playerName,
-  room,
-  state,
-}: {
-  phase: RoomPhase;
-  playerName: (playerId: string) => string;
-  room: GameRoom | null;
-  state: EngineGameState | null;
-}) {
-  if (phase === "playing") return null;
-
-  if (!state || phase !== "playing") {
-    return (
-      <div className="absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-3">
-        <ProgressDots room={room} phase={phase} />
-      </div>
-    );
-  }
 }
 
 function TableSeat({ seat }: { seat: SeatView }) {
@@ -1095,38 +1086,6 @@ function OpenMiniCard({ card }: { card: Card }) {
       <span className="dpy-open-mini-rank">{card.rank}</span>
       <span className="dpy-open-mini-suit">{suitLabels[card.suit]}</span>
     </span>
-  );
-}
-
-function ProgressDots({ phase, room }: { phase: RoomPhase; room: GameRoom | null }) {
-  if (!room || phase === "playing") return null;
-  const data =
-    phase === "waiting_ready"
-      ? Object.fromEntries(room.players.filter((player) => player.ready).map((player) => [player.id, true]))
-      : phase === "swap_vote"
-        ? room.phaseData.swapVotes
-        : phase === "swap_select"
-          ? room.phaseData.swapSelections
-          : phase === "bomb_vote"
-            ? room.phaseData.bombVotes
-            : phase === "bomb_conflict"
-              ? room.phaseData.bombConflictVotes
-              : undefined;
-
-  return (
-    <div className="flex flex-wrap justify-center gap-2">
-      {room.players.map((player) => (
-        <span
-          key={player.id}
-          className={cn(
-            "rounded-full border px-3 py-1 text-xs font-black",
-            player.id in (data ?? {}) ? "border-emerald-200/50 bg-emerald-400/20 text-emerald-50" : "border-amber-100/20 bg-black/20 text-amber-100/55",
-          )}
-        >
-          {player.name}
-        </span>
-      ))}
-    </div>
   );
 }
 

@@ -228,6 +228,14 @@ function toRoomPlayer(player: PlayerIdentity, index: number, isHost = false): Ro
   };
 }
 
+function withLatestPlayerIdentity(roomPlayer: RoomPlayer, player: PlayerIdentity): RoomPlayer {
+  return {
+    ...roomPlayer,
+    name: player.name,
+    avatarUrl: player.avatarUrl,
+  };
+}
+
 function playerInputs(players: RoomPlayer[]): PlayerInput[] {
   return players.map((player) => ({
     id: player.id,
@@ -549,7 +557,13 @@ export async function joinRoom(roomId: string, player: PlayerIdentity) {
       }
     }
 
-    if (room.players.some((candidate) => candidate.id === player.id)) return room;
+    if (room.players.some((candidate) => candidate.id === player.id)) {
+      const players = room.players.map((candidate) => (candidate.id === player.id ? withLatestPlayerIdentity(candidate, player) : candidate));
+      if (JSON.stringify(players) === JSON.stringify(room.players)) return room;
+      const saved = await updateRoomWithVersion(room.id, room.version, { players });
+      if (saved) return saved;
+      continue;
+    }
     if (room.phase !== "waiting_ready" || room.players.length >= 4) return room;
 
     const players = [...room.players, toRoomPlayer(player, room.players.length)];
@@ -561,6 +575,23 @@ export async function joinRoom(roomId: string, player: PlayerIdentity) {
   }
 
   throw new Error("房间正在被其他玩家更新，请稍后重试。");
+}
+
+export async function syncRoomPlayerIdentity(roomId: string, player: PlayerIdentity) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const room = await fetchRoom(roomId);
+    if (!room) return null;
+
+    const currentPlayer = room.players.find((candidate) => candidate.id === player.id);
+    if (!currentPlayer) return room;
+    if (currentPlayer.name === player.name && currentPlayer.avatarUrl === player.avatarUrl) return room;
+
+    const players = room.players.map((candidate) => (candidate.id === player.id ? withLatestPlayerIdentity(candidate, player) : candidate));
+    const saved = await updateRoomWithVersion(room.id, room.version, { players });
+    if (saved) return saved;
+  }
+
+  throw new Error("同步头像失败，请稍后重试。");
 }
 
 export async function setPlayerReady(roomId: string, playerId: string, ready: boolean) {
@@ -993,6 +1024,18 @@ export async function leaveRoomSpectator(roomId: string, playerId: string) {
     .eq("user_id", playerId)
     .then(() => undefined)
     .catch(() => undefined);
+}
+
+export async function deleteRoomAsHost(roomId: string, playerId: string) {
+  const room = await fetchRoom(roomId);
+  if (!room) return null;
+
+  const actor = room.players.find((player) => player.id === playerId);
+  if (!actor?.isHost) throw new Error("只有房主可以解散房间。");
+
+  const { error } = await getSupabaseClient().from(ROOMS_TABLE).delete().eq("id", roomId);
+  if (error) throw error;
+  return null;
 }
 
 export async function leaveRoomSeat(roomId: string, playerId: string) {

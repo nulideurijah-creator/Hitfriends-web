@@ -1019,12 +1019,6 @@
     border-radius: 0.82rem;
   }
 
-  .dpy-table-notice > :first-child {
-    width: 2.4rem;
-    height: 2.4rem;
-    margin-bottom: 0.35rem;
-  }
-
   .dpy-table-notice-title {
     font-size: clamp(0.95rem, 4.1vw, 1.28rem);
   }
@@ -1191,12 +1185,6 @@
   .dpy-table-notice {
     max-width: min(320px, 58vw);
     padding: 0.48rem 0.62rem 0.56rem;
-  }
-
-  .dpy-table-notice > :first-child {
-    width: 2.2rem;
-    height: 2.2rem;
-    margin-bottom: 0.3rem;
   }
 
   .dpy-table-notice-title {

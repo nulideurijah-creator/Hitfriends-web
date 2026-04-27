@@ -4,6 +4,7 @@ import { getSupabaseClient, isSupabaseConfigured } from "../../lib/supabase";
 import type { GameRoom, RoomMessage } from "../../lib/gameRoomService";
 import {
   applyRoomAction,
+  deleteRoomAsHost,
   fetchRoom,
   fetchRoomMessages,
   fetchRoomSpectators,
@@ -19,6 +20,7 @@ import {
   submitBombVote,
   submitSwapSelection,
   submitSwapVote,
+  syncRoomPlayerIdentity,
   touchRoomSpectator,
   type RoomSpectator,
   type SettlementSnapshot,
@@ -250,6 +252,32 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
     }
   }, [options.spectate, player, refresh, refreshMessages, refreshSpectators, roomId, setRoom]);
 
+  const dismissRoom = useCallback(async () => {
+    if (!roomId || !player) return false;
+    if (options.spectate) {
+      setMessage("观战中不能解散房间。");
+      return false;
+    }
+
+    setBusy(true);
+    setMessage(null);
+    try {
+      await deleteRoomAsHost(roomId, player.id);
+      setRoom(null);
+      messageCache.set(roomId, []);
+      spectatorCache.set(roomId, []);
+      setMessagesState([]);
+      setSpectatorsState([]);
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "解散房间失败。");
+      await refresh();
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }, [options.spectate, player, refresh, roomId, setRoom]);
+
   const dispatchAction = useCallback(
     async (action: GameAction) => {
       if (!roomId) return false;
@@ -435,8 +463,25 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
     [player, room?.players],
   );
 
+  useEffect(() => {
+    if (!roomId || !player || !myRoomPlayer || options.spectate || !isSupabaseConfigured) return undefined;
+    if (myRoomPlayer.name === player.name && myRoomPlayer.avatarUrl === player.avatarUrl) return undefined;
+
+    let cancelled = false;
+    syncRoomPlayerIdentity(roomId, player)
+      .then((updated) => {
+        if (!cancelled && updated) setRoom(updated);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [myRoomPlayer?.avatarUrl, myRoomPlayer?.name, options.spectate, player, roomId, setRoom]);
+
   return {
     busy,
+    dismissRoom,
     dispatchAction,
     isConfigured: isSupabaseConfigured,
     isMyTurn,

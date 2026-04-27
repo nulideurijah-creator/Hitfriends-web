@@ -182,6 +182,7 @@ using (
     select 1
     from jsonb_array_elements(players) as player
     where player->>'id' = auth.uid()::text
+      and coalesce((player->>'isHost')::boolean, false)
   )
 );
 
