@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { Camera, Edit3, History, Loader2, LogOut, Settings, Shield, Trophy } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { fetchPlayerSettlementRecords, type PlayerSettlementRecord } from "../../lib/gameRoomService";
+import { fetchPlayerSettlementRecords, type PlayerSettlementRecord, type RoomMode } from "../../lib/gameRoomService";
 
 export function Profile() {
   const { user, loading, signOut, updateAvatar, updateNickname } = useAuth();
@@ -11,6 +11,7 @@ export function Profile() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [settlements, setSettlements] = useState<PlayerSettlementRecord[]>([]);
+  const [settlementMode, setSettlementMode] = useState<RoomMode>("casual");
   const [settlementsLoading, setSettlementsLoading] = useState(false);
   const [settlementsError, setSettlementsError] = useState<string | null>(null);
 
@@ -28,7 +29,7 @@ export function Profile() {
       setSettlementsLoading(true);
       setSettlementsError(null);
       try {
-        const records = await fetchPlayerSettlementRecords(user.id);
+        const records = await fetchPlayerSettlementRecords(user.id, settlementMode);
         if (!cancelled) setSettlements(records);
       } catch (error) {
         if (!cancelled) setSettlementsError(error instanceof Error ? error.message : "房间积分记录加载失败。");
@@ -40,7 +41,7 @@ export function Profile() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [settlementMode, user?.id]);
 
   async function handleLogout() {
     await signOut();
@@ -150,6 +151,22 @@ export function Profile() {
             <History className="h-5 w-5 text-amber-300" />
             房间积分记录
           </h3>
+          <div className="mb-5 inline-flex rounded-lg border border-white/10 bg-neutral-950 p-1">
+            <button
+              type="button"
+              onClick={() => setSettlementMode("casual")}
+              className={`rounded-md px-4 py-2 text-sm font-black ${settlementMode === "casual" ? "bg-[#d8b65a] text-neutral-950" : "text-neutral-300 hover:bg-white/[0.06]"}`}
+            >
+              休闲模式
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettlementMode("ladder")}
+              className={`rounded-md px-4 py-2 text-sm font-black ${settlementMode === "ladder" ? "bg-[#d8b65a] text-neutral-950" : "text-neutral-300 hover:bg-white/[0.06]"}`}
+            >
+              天梯模式
+            </button>
+          </div>
           {settlementsLoading ? (
             <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-neutral-300">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -168,7 +185,12 @@ export function Profile() {
                   <div key={record.id} className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <div className="font-black text-white">房间 {record.room_id}</div>
+                        <div className="font-black text-white">
+                          房间 {record.room_id}
+                          <span className="ml-2 rounded-full bg-[#d8b65a]/15 px-2 py-0.5 text-xs text-[#f0d58b]">
+                            {record.mode === "ladder" ? "天梯" : "休闲"}
+                          </span>
+                        </div>
                         <div className="mt-1 text-xs text-neutral-500">
                           {new Date(record.settled_at).toLocaleString()} · {record.participants.length} 人局 · {record.score_history.length} 局
                         </div>

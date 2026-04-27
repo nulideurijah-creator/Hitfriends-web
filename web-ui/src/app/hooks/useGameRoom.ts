@@ -15,6 +15,7 @@ import {
   sendRoomMessage,
   setRoomSpectatorWatching,
   setPlayerReady,
+  startRoomGame,
   settleAndLeaveRoom,
   submitBombConflictVote,
   submitBombVote,
@@ -195,6 +196,12 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
     if (!roomId || !player) return null;
     if (options.spectate) return null;
     return runRoomMutation(() => resetRoomForNextRound(roomId, player.id));
+  }, [options.spectate, player, roomId, runRoomMutation]);
+
+  const startGame = useCallback(async () => {
+    if (!roomId || !player) return null;
+    if (options.spectate) return null;
+    return runRoomMutation(() => startRoomGame(roomId, player.id));
   }, [options.spectate, player, roomId, runRoomMutation]);
 
   const leaveSeat = useCallback(async () => {
@@ -403,6 +410,7 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
             const raw = payload.new as GameRoom & { phase_data?: GameRoom["phaseData"] };
             setRoom({
               ...raw,
+              mode: raw.mode === "ladder" ? "ladder" : "casual",
               phaseData: raw.phaseData ?? raw.phase_data ?? {},
               scoreHistory: raw.scoreHistory ?? raw.phaseData?.scoreHistory ?? raw.phase_data?.scoreHistory ?? [],
             });
@@ -503,6 +511,7 @@ export function useGameRoom(roomId: string | undefined, options: UseGameRoomOpti
     settleRoom,
     spectators,
     state,
+    startGame,
     toggleReady,
     voteBomb,
     voteBombConflict,

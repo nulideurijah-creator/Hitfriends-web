@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { Loader2, Plus, RefreshCw, Search, Trophy, Users } from "lucide-react";
-import type { GameRoom, RoomPhase } from "../../lib/gameRoomService";
+import type { GameRoom, RoomMode, RoomPhase } from "../../lib/gameRoomService";
 import { createRoom, listRooms } from "../../lib/gameRoomService";
 import { isSupabaseConfigured } from "../../lib/supabase";
 import { useAuth } from "../context/AuthContext";
@@ -22,6 +22,7 @@ export function Lobby() {
   const { user } = useAuth();
   const [rooms, setRooms] = useState<GameRoom[]>([]);
   const [roomId, setRoomId] = useState("");
+  const [roomMode, setRoomMode] = useState<RoomMode>("casual");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -53,13 +54,17 @@ export function Lobby() {
     setBusy(true);
     setMessage(null);
     try {
-      const room = await createRoom({
-        id: user.id,
-        name: user.nickname,
-        createdAt: user.createdAt,
-        score: user.score,
-        avatarUrl: user.avatar,
-      });
+      const room = await createRoom(
+        {
+          id: user.id,
+          name: user.nickname,
+          createdAt: user.createdAt,
+          score: user.score,
+          avatarUrl: user.avatar,
+        },
+        undefined,
+        roomMode,
+      );
       navigate(`/room/${room.id}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "创建房间失败。");
@@ -92,6 +97,28 @@ export function Lobby() {
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
+              <div className="inline-flex shrink-0 rounded-lg border border-white/10 bg-neutral-950 p-1">
+                <button
+                  type="button"
+                  onClick={() => setRoomMode("casual")}
+                  className={cn(
+                    "whitespace-nowrap rounded-md px-3 py-2 text-sm font-black",
+                    roomMode === "casual" ? "bg-[#d8b65a] text-neutral-950" : "text-neutral-300 hover:bg-white/[0.06]",
+                  )}
+                >
+                  休闲
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoomMode("ladder")}
+                  className={cn(
+                    "whitespace-nowrap rounded-md px-3 py-2 text-sm font-black",
+                    roomMode === "ladder" ? "bg-[#d8b65a] text-neutral-950" : "text-neutral-300 hover:bg-white/[0.06]",
+                  )}
+                >
+                  天梯
+                </button>
+              </div>
               <form onSubmit={handleJoinById} className="relative shrink-0">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
                 <input
@@ -176,6 +203,10 @@ function RoomCard({ room }: { room: GameRoom }) {
         >
           {phaseLabels[room.phase]}
         </span>
+      </div>
+
+      <div className="mb-4 inline-flex rounded-full border border-[#d8b65a]/25 bg-[#d8b65a]/10 px-3 py-1 text-xs font-black text-[#f0d58b]">
+        {room.mode === "ladder" ? "天梯模式 · 计入全服榜" : "休闲模式 · 不计入全服榜"}
       </div>
 
       <div className="mb-5 flex items-center gap-2 text-sm text-neutral-300">

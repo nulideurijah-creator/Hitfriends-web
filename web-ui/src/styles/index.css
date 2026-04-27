@@ -103,6 +103,10 @@
   object-fit: cover;
 }
 
+.dpy-mobile-card-count {
+  display: none;
+}
+
 .dpy-seat-info {
   min-width: 8rem;
   border: 1px solid rgba(232, 201, 122, 0.22);
@@ -861,6 +865,24 @@
 
   .dpy-seat-info {
     display: none;
+  }
+
+  .dpy-mobile-card-count {
+    position: absolute;
+    right: -0.45rem;
+    bottom: -0.35rem;
+    display: inline-flex;
+    min-width: 2.15rem;
+    justify-content: center;
+    border: 1px solid rgba(232, 201, 122, 0.36);
+    border-radius: 999px;
+    background: rgba(5, 8, 8, 0.86);
+    padding: 0.12rem 0.4rem;
+    color: #fff7d6;
+    font-size: 0.68rem;
+    font-weight: 900;
+    line-height: 1.2;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.38);
   }
 
   .dpy-turn-star,

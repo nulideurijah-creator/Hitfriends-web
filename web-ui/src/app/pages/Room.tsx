@@ -103,6 +103,7 @@ export function Room() {
     settleRoom,
     spectators,
     state,
+    startGame,
     toggleReady,
     voteBomb,
     voteBombConflict,
@@ -383,6 +384,7 @@ export function Room() {
             </button>
           )}
           <InfoPill icon={<Users className="h-4 w-4" />}>{room?.players.length ?? 0}/4</InfoPill>
+          <InfoPill icon={<Trophy className="h-4 w-4" />}>{room?.mode === "ladder" ? "天梯" : "休闲"}</InfoPill>
           <InfoPill icon={<Eye className="h-4 w-4" />}>{isSeated ? "玩家" : isSpectatorMode ? "观战" : "选择身份"}</InfoPill>
           <InfoPill icon={<Eye className="h-4 w-4" />}>{spectators.length} 观众</InfoPill>
           <InfoPill icon={<Lock className="h-4 w-4" />}>{phaseLabels[phase]}</InfoPill>
@@ -442,6 +444,7 @@ export function Room() {
             onReady={() => toggleReady(!myRoomPlayer?.ready)}
             onSettle={() => setShowSettleConfirm(true)}
             onSpectate={handleSpectateRoom}
+            onStartGame={startGame}
             onSwapCardSubmit={handleSwapSubmit}
             onSwapChoice={setSwapChoice}
             onSwapSubmit={() => swapChoice !== null && voteSwap(swapChoice)}
@@ -519,6 +522,7 @@ function GameTable({
   onReady,
   onSettle,
   onSpectate,
+  onStartGame,
   onSwapCardSubmit,
   onSwapChoice,
   onSwapSubmit,
@@ -569,6 +573,7 @@ function GameTable({
   onReady: () => void;
   onSettle: () => void;
   onSpectate: () => void;
+  onStartGame: () => void;
   onSwapCardSubmit: () => void;
   onSwapChoice: (value: boolean) => void;
   onSwapSubmit: () => void;
@@ -639,11 +644,13 @@ function GameTable({
           onReady={onReady}
           onSettle={onSettle}
           onSpectate={onSpectate}
+          onStartGame={onStartGame}
           onSwapCardSubmit={onSwapCardSubmit}
           onSwapChoice={onSwapChoice}
           onSwapSubmit={onSwapSubmit}
           phase={phase}
           player={player}
+          room={room}
           selectedCount={selectedCount}
           swapChoice={swapChoice}
         />
@@ -699,11 +706,13 @@ function ActionDock({
   onReady,
   onSettle,
   onSpectate,
+  onStartGame,
   onSwapCardSubmit,
   onSwapChoice,
   onSwapSubmit,
   phase,
   player,
+  room,
   selectedCount,
   swapChoice,
 }: {
@@ -735,12 +744,15 @@ function ActionDock({
   onPass: () => void;
   onPlay: () => void;
   onReady: () => void;
+  onSettle: () => void;
   onSpectate: () => void;
+  onStartGame: () => void;
   onSwapCardSubmit: () => void;
   onSwapChoice: (value: boolean) => void;
   onSwapSubmit: () => void;
   phase: RoomPhase;
   player: { id: string; name: string } | null;
+  room: GameRoom | null;
   selectedCount: number;
   swapChoice: boolean | null;
 }) {
@@ -774,11 +786,25 @@ function ActionDock({
   }
 
   if (phase === "waiting_ready") {
+    const playerCount = room?.players.length ?? 0;
+    const readyCount = room?.players.filter((player) => player.ready).length ?? 0;
+    const allReady = playerCount >= 2 && readyCount === playerCount;
+    const canStart = Boolean(myRoomPlayer?.isHost && allReady);
+
     return (
       <div className="dpy-action-dock">
         <button onClick={onReady} disabled={busy} className={cn("dpy-game-button", myRoomPlayer?.ready ? "dpy-game-button-gold" : "dpy-game-button-blue")}>
           {myRoomPlayer?.ready ? "取消准备" : "准备"}
         </button>
+        {myRoomPlayer?.isHost ? (
+          <button onClick={onStartGame} disabled={busy || !canStart} className="dpy-game-button dpy-game-button-blue">
+            开始游戏
+          </button>
+        ) : (
+          <span className="rounded-full bg-black/35 px-3 py-2 text-xs font-black text-amber-100/75">
+            {allReady ? "等待房主开始" : `${readyCount}/${playerCount} 已准备`}
+          </span>
+        )}
       </div>
     );
   }
@@ -904,15 +930,11 @@ function HandDock({
   }, [canSeeHand]);
 
   if (!canSeeHand) {
-    return (
-      <div className="mx-auto mb-4 flex h-36 max-w-3xl items-center justify-center rounded-[22px] border border-amber-200/20 bg-black/25 text-amber-100/60">
-        {phase === "waiting_ready" ? "全员准备后才会发牌" : isSpectatorMode ? "观战中显示全场手牌" : "入座后显示你的手牌"}
-      </div>
-    );
+    return null;
   }
 
   if (cards.length === 0) {
-    return <div className="mx-auto mb-4 flex h-36 max-w-3xl items-center justify-center rounded-[22px] border border-amber-200/20 bg-black/25 text-amber-100/60">{handOwnerName ? `${handOwnerName} 没有手牌` : "没有手牌"}</div>;
+    return null;
   }
 
   const rackLayout = getHandRackLayout(cards.length, rackContainerWidth);
@@ -1036,6 +1058,7 @@ function TableSeat({ seat }: { seat: SeatView }) {
         <div className="dpy-seat-avatar">
           {seat.avatarUrl ? <img src={seat.avatarUrl} alt={seat.name} /> : <span>{seat.name.slice(0, 1)}</span>}
         </div>
+        <div className="dpy-mobile-card-count">{seat.handCount}张</div>
         {seat.isTurn && <div className="dpy-turn-star"><Sparkles className="h-4 w-4" /></div>}
         {seat.isHost && <div className="dpy-host-crown"><Crown className="h-4 w-4" /></div>}
       </div>
@@ -1462,7 +1485,14 @@ function createTableNotice({
   }
   if (phase === "waiting_ready") {
     const ready = room?.players.filter((player) => player.ready).length ?? 0;
-    return { title: "等待准备", subtitle: `${ready}/${room?.players.length ?? 0} 已准备`, tone: "normal", icon: <Users className="h-6 w-6" /> };
+    const total = room?.players.length ?? 0;
+    const allReady = total >= 2 && ready === total;
+    return {
+      title: allReady ? "等待房主开始" : "等待准备",
+      subtitle: allReady ? "所有玩家已准备" : `${ready}/${total} 已准备`,
+      tone: "normal",
+      icon: <Users className="h-6 w-6" />,
+    };
   }
   if (phase === "swap_vote") {
     return { title: "是否换牌？", subtitle: "", tone: "warning", icon: <ShieldAlert className="h-6 w-6" /> };

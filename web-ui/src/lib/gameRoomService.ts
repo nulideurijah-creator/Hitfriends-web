@@ -6,7 +6,9 @@ const ROOMS_TABLE = "game_rooms";
 const MESSAGES_TABLE = "room_messages";
 const SPECTATORS_TABLE = "room_spectators";
 const SETTLEMENTS_TABLE = "room_settlement_records";
-const ROOM_SELECT = "id, players, state, phase, phase_data, version, created_at, updated_at";
+const ROOM_SELECT = "id, mode, players, state, phase, phase_data, version, created_at, updated_at";
+
+export type RoomMode = "casual" | "ladder";
 
 export type PlayerIdentity = {
   id: string;
@@ -64,6 +66,7 @@ export type RoomScoreEntry = {
 
 export type GameRoom = {
   id: string;
+  mode: RoomMode;
   players: RoomPlayer[];
   state: GameState | null;
   phase: RoomPhase;
@@ -101,6 +104,7 @@ export type RoomSpectator = {
 
 export type SettlementSnapshot = {
   roomId: string;
+  mode: RoomMode;
   roomSessionId: string;
   settledAt: string;
   settledBy: string;
@@ -125,6 +129,7 @@ export type SettlementResult = {
 export type PlayerSettlementRecord = {
   id: string;
   room_id: string;
+  mode: RoomMode;
   room_session_id: string;
   participant_signature: string;
   participant_ids: string[];
@@ -192,6 +197,7 @@ function normalizeRoom(raw: GameRoomRow): GameRoom {
       : [];
   return {
     ...raw,
+    mode: raw.mode === "ladder" ? "ladder" : "casual",
     players: players.map((player, index) => normalizeRoomPlayer(player, index)),
     state: raw.state ?? null,
     phase: derivePhase(raw),
@@ -280,6 +286,7 @@ function syncPlayersWithState(players: RoomPlayer[], state: GameState | null) {
 
 function toDbPatch(patch: Partial<GameRoom>) {
   const dbPatch: Record<string, unknown> = {};
+  if ("mode" in patch) dbPatch.mode = patch.mode;
   if ("players" in patch) dbPatch.players = patch.players;
   if ("state" in patch) dbPatch.state = patch.state;
   if ("phase" in patch) dbPatch.phase = patch.phase;
@@ -324,6 +331,7 @@ function createSettlementSnapshot(room: GameRoom, settledBy: string, remainingPl
   const lastDelta = room.state?.lastScoreDelta ?? {};
   return {
     roomId: room.id,
+    mode: room.mode,
     roomSessionId: getRoomSessionId(room),
     settledAt: nowIso(),
     settledBy,
@@ -347,6 +355,7 @@ async function persistSettlementRecord(snapshot: SettlementSnapshot) {
   const { error } = await supabase.from(SETTLEMENTS_TABLE).upsert(
     {
       room_id: snapshot.roomId,
+      mode: snapshot.mode,
       room_session_id: snapshot.roomSessionId,
       participant_signature: participantSignature(snapshot.players),
       participant_ids: participantIds,
@@ -380,6 +389,8 @@ async function updateRoomWithVersion(roomId: string, oldVersion: number, patch: 
 }
 
 async function updateProfilesFromDelta(room: GameRoom) {
+  if (room.mode !== "ladder") return;
+
   const delta = room.state?.lastScoreDelta;
   if (!delta) return;
 
@@ -525,11 +536,12 @@ export async function listRooms() {
   return (data ?? []).map((room) => normalizeRoom(room as GameRoomRow));
 }
 
-export async function createRoom(player: PlayerIdentity, preferredRoomId = createRoomId()) {
+export async function createRoom(player: PlayerIdentity, preferredRoomId = createRoomId(), mode: RoomMode = "casual") {
   await cleanupExpiredRooms();
   const supabase = getSupabaseClient();
   const room = {
     id: preferredRoomId,
+    mode,
     players: [toRoomPlayer(player, 0, true)],
     state: null,
     phase: "waiting_ready" satisfies RoomPhase,
@@ -602,8 +614,6 @@ export async function setPlayerReady(roomId: string, playerId: string, ready: bo
       throw new Error("当前阶段不能修改准备状态。");
     }
 
-    let nextPhase: RoomPhase = "waiting_ready";
-    let nextState: GameState | null = null;
     let nextPhaseData: RoomPhaseData = {
       phaseStartedAt: nowIso(),
       roomSessionId: room.phaseData.roomSessionId ?? createRoomSessionId(),
@@ -627,32 +637,54 @@ export async function setPlayerReady(roomId: string, playerId: string, ready: bo
     else delete nextPhaseData.readyAtByPlayer?.[playerId];
 
     const allReady = players.length >= 2 && players.every((player) => player.ready);
-    if (allReady) {
-      nextState = createStateFromPlayers(players);
-      nextPhase = "swap_vote";
-      nextPhaseData = {
-        phaseStartedAt: nowIso(),
-        roomSessionId: room.phaseData.roomSessionId ?? createRoomSessionId(),
-        settlementIndex: room.phaseData.settlementIndex ?? 0,
-        swapVotes: {},
-        scoreHistory: room.scoreHistory,
-        notice: "所有玩家已准备，进入换牌投票。",
-      };
-    }
+    nextPhaseData.notice = allReady ? "所有玩家已准备，等待房主开始游戏。" : "等待玩家准备。";
 
     const saved = await updateRoomWithVersion(room.id, room.version, {
       players,
-      state: nextState,
-      phase: nextPhase,
+      state: room.phase === "finished" ? null : room.state,
+      phase: "waiting_ready",
       phaseData: nextPhaseData,
     });
+    if (saved) return saved;
+  }
+
+  throw new Error("准备状态冲突，请重试。");
+}
+
+export async function startRoomGame(roomId: string, hostPlayerId: string) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const room = await fetchRoom(roomId);
+    if (!room) throw new Error("房间不存在。");
+    if (room.phase !== "waiting_ready") throw new Error("当前阶段不能开始游戏。");
+
+    const actor = room.players.find((player) => player.id === hostPlayerId);
+    if (!actor?.isHost) throw new Error("只有房主可以开始游戏。");
+    if (room.players.length < 2 || room.players.length > 4) throw new Error("需要 2-4 名玩家才能开始游戏。");
+    if (!room.players.every((player) => player.ready)) throw new Error("所有玩家准备后，房主才可以开始游戏。");
+
+    const state = createStateFromPlayers(room.players);
+    const phaseData: RoomPhaseData = {
+      phaseStartedAt: nowIso(),
+      roomSessionId: room.phaseData.roomSessionId ?? createRoomSessionId(),
+      settlementIndex: room.phaseData.settlementIndex ?? 0,
+      swapVotes: {},
+      scoreHistory: room.scoreHistory,
+      notice: "房主已开始游戏，进入换牌投票。",
+    };
+
+    const saved = await updateRoomWithVersion(room.id, room.version, {
+      players: syncPlayersWithState(room.players, state),
+      state,
+      phase: "swap_vote",
+      phaseData,
+    });
     if (saved) {
-      if (allReady) await sendSystemMessage(room.id, "所有玩家已准备，系统发牌。");
+      await sendSystemMessage(room.id, "房主已开始游戏，系统发牌。");
       return saved;
     }
   }
 
-  throw new Error("准备状态冲突，请重试。");
+  throw new Error("开始游戏冲突，请重试。");
 }
 
 export async function submitSwapVote(roomId: string, playerId: string, wantsSwap: boolean) {
@@ -1115,14 +1147,17 @@ export async function settleAndLeaveRoom(roomId: string, playerId: string): Prom
   throw new Error("结算离开失败，请重试。");
 }
 
-export async function fetchPlayerSettlementRecords(playerId: string, limit = 40) {
+export async function fetchPlayerSettlementRecords(playerId: string, mode?: RoomMode, limit = 40) {
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from(SETTLEMENTS_TABLE)
     .select("*")
     .contains("participant_ids", [playerId])
-    .order("settled_at", { ascending: false })
-    .limit(limit);
+    .order("settled_at", { ascending: false });
+
+  if (mode) query = query.eq("mode", mode);
+
+  const { data, error } = await query.limit(limit);
 
   if (error) throw error;
   return (data ?? []) as PlayerSettlementRecord[];

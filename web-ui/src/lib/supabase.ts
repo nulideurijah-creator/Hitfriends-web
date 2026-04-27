@@ -14,7 +14,7 @@ export function getSupabaseClient() {
   if (!client) {
     client = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        storage: typeof window !== "undefined" ? window.sessionStorage : undefined,
+        storage: typeof window !== "undefined" ? window.localStorage : undefined,
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,

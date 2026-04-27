@@ -64,7 +64,7 @@ export function Leaderboard() {
           <Trophy className="h-8 w-8" />
         </div>
         <h1 className="text-4xl font-black text-white">全服积分榜</h1>
-        <p className="mt-2 text-neutral-400">开服以来累计积分排名，看看谁最吊。</p>
+        <p className="mt-2 text-neutral-400">仅统计天梯模式积分，看看谁最吊。</p>
       </div>
 
       {message && <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">{message}</div>}

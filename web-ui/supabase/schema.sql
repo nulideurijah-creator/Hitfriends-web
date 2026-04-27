@@ -1,5 +1,6 @@
 create table if not exists public.game_rooms (
   id text primary key,
+  mode text not null default 'casual',
   players jsonb not null default '[]'::jsonb,
   state jsonb,
   phase text not null default 'waiting_ready',
@@ -13,6 +14,9 @@ create table if not exists public.game_rooms (
 
 alter table public.game_rooms
   add column if not exists phase text not null default 'waiting_ready';
+
+alter table public.game_rooms
+  add column if not exists mode text not null default 'casual';
 
 alter table public.game_rooms
   add column if not exists phase_data jsonb not null default '{}'::jsonb;
@@ -82,6 +86,7 @@ create index if not exists room_spectators_room_seen_idx
 create table if not exists public.room_settlement_records (
   id uuid primary key default gen_random_uuid(),
   room_id text not null,
+  mode text not null default 'casual',
   room_session_id text not null,
   participant_signature text not null,
   participant_ids text[] not null default '{}',
@@ -99,6 +104,53 @@ create index if not exists room_settlement_records_player_idx
 
 create index if not exists room_settlement_records_settled_at_idx
   on public.room_settlement_records (settled_at desc);
+
+alter table public.room_settlement_records
+  add column if not exists mode text not null default 'casual';
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'game_rooms_mode_check'
+  ) then
+    alter table public.game_rooms
+      add constraint game_rooms_mode_check check (mode in ('casual', 'ladder'));
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint where conname = 'room_settlement_records_mode_check'
+  ) then
+    alter table public.room_settlement_records
+      add constraint room_settlement_records_mode_check check (mode in ('casual', 'ladder'));
+  end if;
+end;
+$$;
+
+create table if not exists public.app_migrations (
+  id text primary key,
+  applied_at timestamptz not null default now()
+);
+
+do $$
+begin
+  if not exists (
+    select 1 from public.app_migrations where id = '20260427_reset_scores_for_room_modes'
+  ) then
+    update public.profiles
+    set
+      score = 0,
+      games_played = 0,
+      wins = 0,
+      best_single_score = 0,
+      updated_at = now();
+
+    delete from public.room_settlement_records;
+
+    insert into public.app_migrations (id)
+    values ('20260427_reset_scores_for_room_modes');
+  end if;
+end;
+$$;
 
 create or replace function public.set_updated_at()
 returns trigger
