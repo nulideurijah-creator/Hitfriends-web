@@ -54,6 +54,8 @@ type SeatView = {
   avatarUrl?: string;
   handCount: number;
   winRate: string;
+  batchScore: number;
+  lastDelta: number | null;
   multiplier: number;
   ready: boolean;
   isHost: boolean;
@@ -1060,7 +1062,9 @@ function TableSeat({ seat }: { seat: SeatView }) {
         <div className="dpy-seat-avatar">
           {seat.avatarUrl ? <img src={seat.avatarUrl} alt={seat.name} /> : <span>{seat.name.slice(0, 1)}</span>}
         </div>
-        <div className="dpy-mobile-seat-stats">{seat.handCount}张 · {seat.winRate}</div>
+        <div className="dpy-mobile-seat-stats">
+          {seat.handCount}张 · {seat.winRate} · <span className={scoreToneClass(seat.batchScore)}>{formatSigned(seat.batchScore)}</span>
+        </div>
         {seat.isTurn && <div className="dpy-turn-star"><Sparkles className="h-4 w-4" /></div>}
         {seat.isHost && <div className="dpy-host-crown"><Crown className="h-4 w-4" /></div>}
       </div>
@@ -1070,6 +1074,12 @@ function TableSeat({ seat }: { seat: SeatView }) {
           <span className="text-amber-200">胜率 {seat.winRate}</span>
           <span className="rounded bg-red-500 px-1.5 py-0.5 text-white">{seat.multiplier}倍</span>
           <span className="text-sky-100">{seat.handCount}张</span>
+        </div>
+        <div className="mt-1 flex items-center gap-2 text-[11px] font-black">
+          <span className={cn("rounded-full bg-black/24 px-2 py-0.5", scoreToneClass(seat.batchScore))}>本批 {formatSigned(seat.batchScore)}</span>
+          {seat.lastDelta !== null && (
+            <span className={cn("rounded-full bg-black/24 px-2 py-0.5", scoreToneClass(seat.lastDelta))}>本局 {formatSigned(seat.lastDelta)}</span>
+          )}
         </div>
         <div className="text-[11px] font-black text-emerald-200">{seat.ready ? "已准备" : seat.status}</div>
       </div>
@@ -1288,7 +1298,7 @@ function SettlementDialog({
                   <span className={Number(latestDelta[player.id] ?? 0) >= 0 ? "text-emerald-300" : "text-red-300"}>
                     {formatSigned(Number(latestDelta[player.id] ?? 0))}
                   </span>
-                  <span className="text-amber-100">{player.score} 分</span>
+                  <span className="text-amber-100">本批 {formatSigned(player.score)}</span>
                 </span>
               </div>
             ))}
@@ -1337,7 +1347,7 @@ function SettlementComplete({ snapshot }: { snapshot: SettlementSnapshot }) {
         </div>
 
         <div className="mb-6 rounded-xl border border-amber-100/10 bg-black/22 p-4">
-          <div className="mb-3 text-sm font-black text-amber-100/70">最终积分</div>
+          <div className="mb-3 text-sm font-black text-amber-100/70">本批累计总分</div>
           <div className="grid gap-2">
             {[...snapshot.players].sort((a, b) => b.score - a.score).map((player) => (
               <div key={player.id} className="flex items-center justify-between rounded-lg bg-white/[0.04] px-3 py-2">
@@ -1347,7 +1357,10 @@ function SettlementComplete({ snapshot }: { snapshot: SettlementSnapshot }) {
                   </div>
                   <span className="truncate font-black">{player.name}</span>
                 </div>
-                <span className="font-mono text-amber-100">{player.score} 分</span>
+                <span className="flex items-center gap-3 font-mono text-sm">
+                  <span className={scoreToneClass(player.lastDelta)}>本局 {formatSigned(player.lastDelta)}</span>
+                  <span className={cn("font-black", scoreToneClass(player.score))}>本批 {formatSigned(player.score)}</span>
+                </span>
               </div>
             ))}
           </div>
@@ -1369,6 +1382,7 @@ function SettlementComplete({ snapshot }: { snapshot: SettlementSnapshot }) {
                     {Object.entries(entry.deltas).map(([playerId, delta]) => (
                       <span key={playerId} className="rounded-full bg-black/25 px-2 py-1">
                         {snapshot.players.find((player) => player.id === playerId)?.name ?? playerId.slice(0, 6)} {formatSigned(delta)}
+                        <span className="ml-1 text-white/40">总 {formatSigned(Number(entry.totals[playerId] ?? 0))}</span>
                       </span>
                     ))}
                   </div>
@@ -1408,6 +1422,12 @@ function formatSigned(value: number) {
   return value > 0 ? `+${value}` : `${value}`;
 }
 
+function scoreToneClass(value: number) {
+  if (value > 0) return "text-emerald-300";
+  if (value < 0) return "text-red-300";
+  return "text-amber-100/70";
+}
+
 function syncSettlementPlayers(room: GameRoom, state: EngineGameState | null) {
   return room.players.map((player) => {
     const gamePlayer = state?.players.find((candidate) => candidate.id === player.id);
@@ -1444,15 +1464,20 @@ function buildSeats(room: GameRoom | null, state: EngineGameState | null, player
     4: ["bottom", "left", "top", "right"],
   };
   const positions = positionSets[Math.min(4, ordered.length)] ?? positionSets[4];
+  const latestScoreEntry = room?.scoreHistory.at(-1);
 
   return ordered.map((candidate, index) => {
     const gamePlayer = state?.players.find((item) => item.id === candidate.id);
+    const batchScore = Number(gamePlayer?.score ?? candidate.score ?? latestScoreEntry?.totals?.[candidate.id] ?? 0);
+    const lastDelta = latestScoreEntry?.deltas?.[candidate.id];
     return {
       id: candidate.id,
       name: candidate.name,
       avatarUrl: candidate.avatarUrl,
       handCount: phase === "waiting_ready" ? 0 : gamePlayer?.hand.length ?? 0,
       winRate: formatWinRate(candidate.wins, candidate.gamesPlayed),
+      batchScore,
+      lastDelta: typeof lastDelta === "number" ? lastDelta : null,
       multiplier: gamePlayer?.multiplier ?? candidate.multiplier ?? 1,
       ready: candidate.ready,
       isHost: candidate.isHost,

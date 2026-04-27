@@ -962,7 +962,7 @@
     bottom: -1.1rem;
     transform: translateX(-50%);
     display: inline-flex;
-    min-width: 4.45rem;
+    min-width: 6.6rem;
     justify-content: center;
     border: 1px solid rgba(232, 201, 122, 0.36);
     border-radius: 999px;
@@ -1249,9 +1249,9 @@
   }
 
   .dpy-mobile-seat-stats {
-    min-width: 3.9rem;
-    padding: 0.1rem 0.34rem;
-    font-size: 0.6rem;
+    min-width: 5.65rem;
+    padding: 0.1rem 0.32rem;
+    font-size: 0.58rem;
     line-height: 1.1;
     bottom: -0.92rem;
   }

@@ -301,6 +301,7 @@ function toDbPatch(patch: Partial<GameRoom>) {
   if ("state" in patch) dbPatch.state = patch.state;
   if ("phase" in patch) dbPatch.phase = patch.phase;
   if ("phaseData" in patch) dbPatch.phase_data = patch.phaseData;
+  if ("scoreHistory" in patch) dbPatch.score_history = patch.scoreHistory;
   return dbPatch;
 }
 
@@ -1084,6 +1085,7 @@ export async function applyRoomAction(roomId: string, action: GameAction): Promi
     players: syncedPlayers,
     phase,
     phaseData,
+    scoreHistory,
   });
 
   if (!saved) {
