@@ -308,6 +308,73 @@ function appendScoreHistory(room: GameRoom, state: GameState, players: RoomPlaye
   return [...room.scoreHistory, nextEntry];
 }
 
+function remainingCardsForScore(player: { hand: Card[]; cardsPlayed?: number }, state: GameState) {
+  if ((player.cardsPlayed ?? 0) === 0) return 15;
+  if (player.hand.length === state.settings.cardsPerPlayer) return 15;
+  return player.hand.length;
+}
+
+function getEffectiveBombers(room: GameRoom, state: GameState) {
+  const bombers = room.phaseData.bombOrder ?? [];
+  if (bombers.length === 0) return [];
+
+  const multiplierByPlayer = new Map(state.players.map((player) => [player.id, Math.max(1, player.multiplier || 1)]));
+  const hasActiveBombMultiplier = bombers.some((playerId) => (multiplierByPlayer.get(playerId) ?? 1) > 1);
+
+  return hasActiveBombMultiplier ? bombers : [];
+}
+
+function calculateRoomScoreDelta(room: GameRoom, state: GameState, winnerId: string): Record<string, number> {
+  const delta: Record<string, number> = {};
+  for (const player of state.players) delta[player.id] = 0;
+
+  const bombers = getEffectiveBombers(room, state);
+  const bomberIds = new Set(bombers);
+
+  if (bombers.length === 0 || bomberIds.has(winnerId)) {
+    for (const player of state.players) {
+      if (player.id === winnerId) continue;
+      const remaining = remainingCardsForScore(player, state);
+      const lost = remaining * Math.max(1, player.multiplier || 1);
+      delta[player.id] -= lost;
+      delta[winnerId] += lost;
+    }
+    return delta;
+  }
+
+  const winnerIds = state.players.filter((player) => !bomberIds.has(player.id)).map((player) => player.id);
+  for (const bomberId of bombers) {
+    const bomber = state.players.find((player) => player.id === bomberId);
+    if (!bomber) continue;
+
+    const remaining = remainingCardsForScore(bomber, state);
+    const lostPerWinner = remaining * Math.max(1, bomber.multiplier || 1);
+    const totalLost = lostPerWinner * winnerIds.length;
+    delta[bomber.id] -= totalLost;
+    for (const winnerPlayerId of winnerIds) {
+      delta[winnerPlayerId] += lostPerWinner;
+    }
+  }
+
+  return delta;
+}
+
+function applyRoomScoreDelta(room: GameRoom, state: GameState) {
+  if (state.gameStatus !== "finished" || !state.winner) return state;
+
+  const delta = calculateRoomScoreDelta(room, state, state.winner);
+  const previousScoreByPlayer = new Map(room.state?.players.map((player) => [player.id, Number(player.score ?? 0)]) ?? []);
+
+  return {
+    ...state,
+    lastScoreDelta: delta,
+    players: state.players.map((player) => ({
+      ...player,
+      score: Number(previousScoreByPlayer.get(player.id) ?? player.score ?? 0) + Number(delta[player.id] ?? 0),
+    })),
+  };
+}
+
 function getRoomSessionId(room: GameRoom) {
   return room.phaseData.roomSessionId ?? `${room.id}-${room.created_at}`;
 }
@@ -953,7 +1020,7 @@ export async function applyRoomAction(roomId: string, action: GameAction): Promi
     actionId: action.actionId ?? createActionId(actionPlayerId, action.type),
   } as GameAction;
 
-  const result = nextState(room.state, lockedAction);
+  let result = nextState(room.state, lockedAction);
 
   if (isEngineError(result)) {
     return {
@@ -962,6 +1029,10 @@ export async function applyRoomAction(roomId: string, action: GameAction): Promi
       error: result,
       message: result.message,
     };
+  }
+
+  if (result.gameStatus === "finished") {
+    result = applyRoomScoreDelta(room, result);
   }
 
   const phase: RoomPhase = result.gameStatus === "finished" ? "finished" : "playing";
