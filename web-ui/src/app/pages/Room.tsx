@@ -14,7 +14,6 @@ import {
   Send,
   ShieldAlert,
   Smile,
-  SkipForward,
   Sparkles,
   Trophy,
   Users,
@@ -66,11 +65,6 @@ type SeatView = {
   position: SeatPosition;
 };
 
-type AutoPassState = {
-  key: string;
-  remaining: number;
-};
-
 type ViewMode = "undecided" | "player" | "spectator";
 
 const emojiOptions = ["😀", "😂", "👍", "👏", "🔥", "💣", "🎉", "😎", "😭", "🤝", "❤️", "😅", "👀", "✨", "🍻", "💯"];
@@ -115,10 +109,8 @@ export function Room() {
   const [bombChoice, setBombChoice] = useState<boolean | null>(null);
   const [conflictChoice, setConflictChoice] = useState<boolean | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [autoPassState, setAutoPassState] = useState<AutoPassState | null>(null);
   const [showSettleConfirm, setShowSettleConfirm] = useState(false);
   const [settlementSnapshot, setSettlementSnapshot] = useState<SettlementSnapshot | null>(null);
-  const autoPassInFlightRef = useRef(false);
 
   const phase = room?.phase ?? "waiting_ready";
   const myGamePlayer = player ? state?.players.find((candidate) => candidate.id === player.id) ?? null : null;
@@ -159,14 +151,16 @@ export function Room() {
   }, [state]);
 
   const tableNotice = createTableNotice({
-    autoPassRemaining: autoPassState?.remaining ?? null,
     bombers,
+    bombChoice,
     error: localError || translateEngineMessage(message),
+    hasPlayable,
     phase,
     playerId: player?.id ?? null,
     playerName,
     room,
     state,
+    swapChoice,
   });
 
   useEffect(() => {
@@ -194,8 +188,6 @@ export function Room() {
 
   useEffect(() => {
     setLocalError(null);
-    setAutoPassState(null);
-    autoPassInFlightRef.current = false;
   }, [phase, state?.revision]);
 
   useEffect(() => {
@@ -208,40 +200,6 @@ export function Room() {
 
     dispatchAction({ type: "AUTO_PLAY_LAST_CARD", playerId: player.id });
   }, [busy, dispatchAction, isSpectatorMode, myGamePlayer, phase, player, state]);
-
-  useEffect(() => {
-    if (isSpectatorMode) return undefined;
-    if (!state || !player) return undefined;
-    if (phase !== "playing" || !isMyTurn || !state.lastMove || hasPlayable) {
-      setAutoPassState(null);
-      autoPassInFlightRef.current = false;
-      return undefined;
-    }
-
-    const key = `${state.revision}:${state.currentTurn}:${state.lastMove.sequence}`;
-    setAutoPassState({ key, remaining: 3 });
-
-    const interval = window.setInterval(() => {
-      setAutoPassState((value) => {
-        if (!value || value.key !== key) return value;
-        return { ...value, remaining: Math.max(1, value.remaining - 1) };
-      });
-    }, 1000);
-
-    const timeout = window.setTimeout(() => {
-      if (autoPassInFlightRef.current) return;
-      autoPassInFlightRef.current = true;
-      dispatchAction({ type: "PASS", playerId: player.id }).finally(() => {
-        autoPassInFlightRef.current = false;
-        setAutoPassState(null);
-      });
-    }, 3000);
-
-    return () => {
-      window.clearInterval(interval);
-      window.clearTimeout(timeout);
-    };
-  }, [dispatchAction, hasPlayable, isMyTurn, isSpectatorMode, phase, player?.id, state?.currentTurn, state?.lastMove?.sequence, state?.revision]);
 
   async function sendAction(action: GameAction, clearSelection = true) {
     if (isSpectatorMode) {
@@ -256,21 +214,16 @@ export function Room() {
 
   async function sendPass() {
     if (!player) return;
-    setAutoPassState(null);
-    autoPassInFlightRef.current = true;
     await sendAction({ type: "PASS", playerId: player.id });
-    autoPassInFlightRef.current = false;
   }
 
   function toggleCard(card: Card) {
     if (isSpectatorMode) return;
-    if (!canSeeHand || busy) return;
+    if (!canSeeHand) return;
     if (phase === "swap_select") {
-      if (mySwapSelection) return;
       setSelectedCardIds((ids) => (ids.includes(card.id) ? [] : [card.id]));
       return;
     }
-    if (phase !== "playing" || !isMyTurn) return;
     setSelectedCardIds((ids) =>
       ids.includes(card.id) ? ids.filter((cardId) => cardId !== card.id) : [...ids, card.id],
     );
@@ -661,7 +614,7 @@ function GameTable({
           <HandDock
             cards={myHand}
             canSeeHand={canSeeHand}
-            disabled={busy || (phase === "playing" && !isMyTurn)}
+            disabled={false}
             isSpectatorMode={isSpectatorMode}
             mySwapSelection={mySwapSelection}
             onToggle={onToggleCard}
@@ -811,11 +764,18 @@ function ActionDock({
 
   if (phase === "swap_vote") {
     const locked = mySwapVote !== undefined;
+    const effectiveChoice = mySwapVote ?? swapChoice;
     return (
       <div className="dpy-action-dock">
-        <button onClick={() => onSwapChoice(true)} disabled={busy || locked} className={cn("dpy-game-button dpy-game-button-gold", swapChoice === true && "is-active")}>换牌</button>
-        <button onClick={() => onSwapChoice(false)} disabled={busy || locked} className={cn("dpy-game-button dpy-game-button-yellow", swapChoice === false && "is-active")}>不换</button>
-        <button onClick={onSwapSubmit} disabled={busy || locked || swapChoice === null} className="dpy-game-button dpy-game-button-blue">确认</button>
+        <button onClick={() => onSwapChoice(true)} disabled={busy || locked} className={cn("dpy-game-button dpy-game-button-gold", effectiveChoice === true && "is-active", locked && mySwapVote === true && "is-confirmed")}>
+          换牌
+        </button>
+        <button onClick={() => onSwapChoice(false)} disabled={busy || locked} className={cn("dpy-game-button dpy-game-button-yellow", effectiveChoice === false && "is-active", locked && mySwapVote === false && "is-confirmed")}>
+          不换
+        </button>
+        <button onClick={onSwapSubmit} disabled={busy || locked || swapChoice === null} className={cn("dpy-game-button dpy-game-button-blue", locked && "is-confirmed")}>
+          {locked ? "已确认" : busy ? "确认中" : "确认"}
+        </button>
       </div>
     );
   }
@@ -831,11 +791,18 @@ function ActionDock({
 
   if (phase === "bomb_vote") {
     const locked = myBombVote !== undefined;
+    const effectiveChoice = myBombVote ?? bombChoice;
     return (
       <div className="dpy-action-dock">
-        <button onClick={() => onBombChoice(false)} disabled={busy || locked} className={cn("dpy-game-button dpy-game-button-yellow", bombChoice === false && "is-active")}>不拍</button>
-        <button onClick={() => onBombChoice(true)} disabled={busy || locked} className={cn("dpy-game-button dpy-game-button-red", bombChoice === true && "is-active")}>拍炸</button>
-        <button onClick={onBombSubmit} disabled={busy || locked || bombChoice === null} className="dpy-game-button dpy-game-button-blue">确认</button>
+        <button onClick={() => onBombChoice(false)} disabled={busy || locked} className={cn("dpy-game-button dpy-game-button-yellow", effectiveChoice === false && "is-active", locked && myBombVote === false && "is-confirmed")}>
+          不拍
+        </button>
+        <button onClick={() => onBombChoice(true)} disabled={busy || locked} className={cn("dpy-game-button dpy-game-button-red", effectiveChoice === true && "is-active", locked && myBombVote === true && "is-confirmed")}>
+          拍炸
+        </button>
+        <button onClick={onBombSubmit} disabled={busy || locked || bombChoice === null} className={cn("dpy-game-button dpy-game-button-blue", locked && "is-confirmed")}>
+          {locked ? "已确认" : busy ? "确认中" : "确认"}
+        </button>
       </div>
     );
   }
@@ -843,11 +810,14 @@ function ActionDock({
   if (phase === "bomb_conflict") {
     if (!isBomber) return <div className="dpy-action-dock text-sm font-black text-amber-100">等待拍炸玩家抢拍</div>;
     const locked = myConflictVote !== undefined;
+    const effectiveChoice = myConflictVote ?? conflictChoice;
     return (
       <div className="dpy-action-dock">
-        <button onClick={() => onConflictChoice(false)} disabled={busy || locked} className={cn("dpy-game-button dpy-game-button-yellow", conflictChoice === false && "is-active")}>放弃</button>
-        <button onClick={() => onConflictChoice(true)} disabled={busy || locked} className={cn("dpy-game-button dpy-game-button-red", conflictChoice === true && "is-active")}>继续抢拍</button>
-        <button onClick={onConflictSubmit} disabled={busy || locked || conflictChoice === null} className="dpy-game-button dpy-game-button-blue">确认</button>
+        <button onClick={() => onConflictChoice(false)} disabled={busy || locked} className={cn("dpy-game-button dpy-game-button-yellow", effectiveChoice === false && "is-active", locked && myConflictVote === false && "is-confirmed")}>放弃</button>
+        <button onClick={() => onConflictChoice(true)} disabled={busy || locked} className={cn("dpy-game-button dpy-game-button-red", effectiveChoice === true && "is-active", locked && myConflictVote === true && "is-confirmed")}>继续抢拍</button>
+        <button onClick={onConflictSubmit} disabled={busy || locked || conflictChoice === null} className={cn("dpy-game-button dpy-game-button-blue", locked && "is-confirmed")}>
+          {locked ? "已确认" : busy ? "确认中" : "确认"}
+        </button>
       </div>
     );
   }
@@ -1039,13 +1009,45 @@ type TableNotice = {
   subtitle: string;
   tone: "normal" | "warning" | "danger" | "success";
   icon: ReactNode;
+  voteItems?: VoteNoticeItem[];
+};
+
+type VoteNoticeItem = {
+  id: string;
+  name: string;
+  label: string;
+  tone: "active" | "negative" | "pending";
+  confirmed: boolean;
+  isMe: boolean;
 };
 
 function TableNoticePanel({ notice }: { notice: TableNotice }) {
   return (
     <div className={cn("absolute left-1/2 top-1/2 z-20 w-[min(420px,56vw)] -translate-x-1/2 -translate-y-1/2 text-center dpy-table-notice", `tone-${notice.tone}`)}>
+      <div className="dpy-table-notice-icon">{notice.icon}</div>
       <div className="dpy-table-notice-title">{notice.title}</div>
       {notice.subtitle && <div className="dpy-table-notice-subtitle">{notice.subtitle}</div>}
+      {notice.voteItems && notice.voteItems.length > 0 && (
+        <div className="dpy-vote-list">
+          {notice.voteItems.map((item) => (
+            <div
+              key={item.id}
+              className={cn(
+                "dpy-vote-chip",
+                `is-${item.tone}`,
+                item.confirmed && "is-confirmed",
+                item.isMe && "is-me",
+              )}
+            >
+              <span className="dpy-vote-name">{item.name}</span>
+              <span className="dpy-vote-state">
+                {item.label}
+                {item.confirmed && <Check className="h-3.5 w-3.5" />}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1059,6 +1061,7 @@ function TableSeat({ seat }: { seat: SeatView }) {
           {seat.avatarUrl ? <img src={seat.avatarUrl} alt={seat.name} /> : <span>{seat.name.slice(0, 1)}</span>}
         </div>
         <div className="dpy-mobile-card-count">{seat.handCount}张</div>
+        <div className="dpy-mobile-score-count">{seat.score}分</div>
         {seat.isTurn && <div className="dpy-turn-star"><Sparkles className="h-4 w-4" /></div>}
         {seat.isHost && <div className="dpy-host-crown"><Crown className="h-4 w-4" /></div>}
       </div>
@@ -1459,29 +1462,30 @@ function buildSeats(room: GameRoom | null, state: EngineGameState | null, player
 }
 
 function createTableNotice({
-  autoPassRemaining,
   bombers,
+  bombChoice,
   error,
+  hasPlayable,
   phase,
   playerId,
   playerName,
   room,
   state,
+  swapChoice,
 }: {
-  autoPassRemaining: number | null;
   bombers: string[];
+  bombChoice: boolean | null;
   error: string | null;
+  hasPlayable: boolean;
   phase: RoomPhase;
   playerId: string | null;
   playerName: (playerId: string) => string;
   room: GameRoom | null;
   state: EngineGameState | null;
+  swapChoice: boolean | null;
 }): TableNotice {
   if (error) {
     return { title: error, subtitle: "", tone: "danger", icon: <AlertTriangle className="h-6 w-6" /> };
-  }
-  if (autoPassRemaining) {
-    return { title: `你没有牌可以出，${autoPassRemaining} 秒后自动跳过`, subtitle: "", tone: "warning", icon: <SkipForward className="h-6 w-6" /> };
   }
   if (phase === "waiting_ready") {
     const ready = room?.players.filter((player) => player.ready).length ?? 0;
@@ -1495,7 +1499,13 @@ function createTableNotice({
     };
   }
   if (phase === "swap_vote") {
-    return { title: "是否换牌？", subtitle: "", tone: "warning", icon: <ShieldAlert className="h-6 w-6" /> };
+    return {
+      title: "是否换牌？",
+      subtitle: "红色表示选择换牌，勾表示已确认",
+      tone: "warning",
+      icon: <ShieldAlert className="h-6 w-6" />,
+      voteItems: buildVoteNoticeItems(room, playerId, room?.phaseData.swapVotes, swapChoice, "换牌", "不换"),
+    };
   }
   if (phase === "swap_select") {
     return { title: "选择 1 张牌交换", subtitle: "", tone: "warning", icon: <Sparkles className="h-6 w-6" /> };
@@ -1503,9 +1513,10 @@ function createTableNotice({
   if (phase === "bomb_vote") {
     return {
       title: room?.phaseData.notice ?? "是否拍炸？",
-      subtitle: room?.phaseData.notice ? "请选择是否拍炸" : "",
+      subtitle: "红色表示选择拍炸，勾表示已确认",
       tone: "danger",
       icon: <Zap className="h-6 w-6" />,
+      voteItems: buildVoteNoticeItems(room, playerId, room?.phaseData.bombVotes, bombChoice, "拍炸", "不拍"),
     };
   }
   if (phase === "bomb_conflict") {
@@ -1517,10 +1528,35 @@ function createTableNotice({
   const currentTurn = state?.currentTurn ? playerName(state.currentTurn) : "等待";
   return {
     title: state?.currentTurn === playerId ? "轮到你出牌" : `轮到 ${currentTurn}`,
-    subtitle: "",
+    subtitle: state?.currentTurn === playerId && state?.lastMove && !hasPlayable ? "没有可压过的牌，可以选择跳过" : "",
     tone: state?.currentTurn === playerId ? "success" : "normal",
     icon: <Sparkles className="h-6 w-6" />,
   };
+}
+
+function buildVoteNoticeItems(
+  room: GameRoom | null,
+  playerId: string | null,
+  confirmedVotes: Record<string, boolean> | undefined,
+  localChoice: boolean | null,
+  activeLabel: string,
+  negativeLabel: string,
+): VoteNoticeItem[] {
+  return [...(room?.players ?? [])]
+    .sort((a, b) => a.seatIndex - b.seatIndex)
+    .map((player) => {
+      const confirmed = confirmedVotes?.[player.id];
+      const isMe = player.id === playerId;
+      const value = confirmed ?? (isMe ? localChoice : undefined);
+      return {
+        id: player.id,
+        name: player.name,
+        label: value === true ? activeLabel : value === false ? negativeLabel : "未选择",
+        tone: value === true ? "active" : value === false ? "negative" : "pending",
+        confirmed: confirmed !== undefined,
+        isMe,
+      };
+    });
 }
 
 function createCandidateMove(state: EngineGameState, playerId: string, cards: Card[]): Move {

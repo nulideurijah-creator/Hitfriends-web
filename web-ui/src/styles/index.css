@@ -107,6 +107,10 @@
   display: none;
 }
 
+.dpy-mobile-score-count {
+  display: none;
+}
+
 .dpy-seat-info {
   min-width: 8rem;
   border: 1px solid rgba(232, 201, 122, 0.22);
@@ -428,6 +432,18 @@
   animation: dpy-notice-in 220ms ease-out;
 }
 
+.dpy-table-notice-icon {
+  margin: 0 auto 0.45rem;
+  display: inline-flex;
+  height: 2.35rem;
+  width: 2.35rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff7d6;
+}
+
 .dpy-table-notice.tone-warning {
   border-color: rgba(216, 182, 90, 0.52);
   background: rgba(67, 49, 20, 0.82);
@@ -457,6 +473,63 @@
   color: rgba(255, 250, 240, 0.72);
   font-size: 0.9rem;
   font-weight: 800;
+}
+
+.dpy-vote-list {
+  margin-top: 0.78rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.dpy-vote-chip {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  padding: 0.42rem 0.55rem 0.42rem 0.68rem;
+  color: rgba(255, 250, 240, 0.68);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.dpy-vote-chip.is-me {
+  border-color: rgba(66, 167, 216, 0.45);
+}
+
+.dpy-vote-chip.is-active {
+  border-color: rgba(255, 111, 86, 0.72);
+  background: rgba(196, 48, 38, 0.42);
+  color: #fff8ee;
+  box-shadow: 0 0 22px rgba(255, 76, 54, 0.28);
+}
+
+.dpy-vote-chip.is-negative {
+  border-color: rgba(216, 182, 90, 0.32);
+  background: rgba(216, 182, 90, 0.1);
+  color: rgba(255, 245, 216, 0.78);
+}
+
+.dpy-vote-chip.is-confirmed {
+  border-color: rgba(89, 218, 164, 0.48);
+}
+
+.dpy-vote-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dpy-vote-state {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.18rem;
 }
 
 .dpy-action-dock {
@@ -493,31 +566,47 @@
   box-shadow:
     0 12px 26px rgba(0, 0, 0, 0.26),
     inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+  transform: translateY(0) scale(1);
+  transition: transform 70ms ease, filter 70ms ease, box-shadow 90ms ease, border-color 90ms ease;
+  will-change: transform;
 }
 
 .dpy-game-button:hover:not(:disabled),
 .dpy-game-button.is-active {
-  filter: brightness(1.08);
+  filter: brightness(1.11);
   transform: translateY(-2px);
   border-color: rgba(255, 255, 255, 0.28);
 }
 
 .dpy-game-button.is-active {
   box-shadow:
-    0 0 0 3px rgba(255, 255, 255, 0.12),
-    0 0 26px rgba(216, 182, 90, 0.34),
+    0 0 0 3px rgba(255, 255, 255, 0.2),
+    0 0 34px rgba(216, 182, 90, 0.52),
     0 12px 26px rgba(0, 0, 0, 0.26);
 }
 
 .dpy-game-button:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: translateY(2px) scale(0.97);
+  filter: brightness(0.95);
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.28),
+    inset 0 3px 8px rgba(0, 0, 0, 0.22);
 }
 
 .dpy-game-button:disabled,
 .dpy-icon-button:disabled {
   opacity: 0.43;
   cursor: not-allowed;
+}
+
+.dpy-game-button.is-confirmed {
+  opacity: 1;
+  cursor: default;
+  border-color: rgba(89, 218, 164, 0.5);
+  box-shadow:
+    0 0 0 3px rgba(89, 218, 164, 0.14),
+    0 0 24px rgba(89, 218, 164, 0.28),
+    0 12px 26px rgba(0, 0, 0, 0.26);
 }
 
 .dpy-game-button-yellow {
@@ -607,6 +696,10 @@
     -4px 0 8px rgba(0, 0, 0, 0.12),
     0 0 0 3px rgba(66, 167, 216, 0.24),
     0 16px 26px rgba(0, 0, 0, 0.34);
+}
+
+.dpy-rack-card.is-selected:not(.is-disabled):hover {
+  transform: translateY(-24px);
 }
 
 .dpy-rack-card.is-swap {
@@ -885,6 +978,24 @@
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.38);
   }
 
+  .dpy-mobile-score-count {
+    position: absolute;
+    left: -0.45rem;
+    bottom: -0.35rem;
+    display: inline-flex;
+    min-width: 2.25rem;
+    justify-content: center;
+    border: 1px solid rgba(66, 167, 216, 0.36);
+    border-radius: 999px;
+    background: rgba(5, 8, 8, 0.86);
+    padding: 0.12rem 0.4rem;
+    color: #ccefff;
+    font-size: 0.68rem;
+    font-weight: 900;
+    line-height: 1.2;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.38);
+  }
+
   .dpy-turn-star,
   .dpy-host-crown {
     padding: 0.25rem;
@@ -1041,12 +1152,29 @@
     border-radius: 0.82rem;
   }
 
+  .dpy-table-notice-icon {
+    height: 1.95rem;
+    width: 1.95rem;
+    margin-bottom: 0.3rem;
+  }
+
   .dpy-table-notice-title {
     font-size: clamp(0.95rem, 4.1vw, 1.28rem);
   }
 
   .dpy-table-notice-subtitle {
     font-size: 0.78rem;
+  }
+
+  .dpy-vote-list {
+    grid-template-columns: 1fr;
+    gap: 0.32rem;
+    margin-top: 0.52rem;
+  }
+
+  .dpy-vote-chip {
+    padding: 0.32rem 0.45rem 0.32rem 0.52rem;
+    font-size: 0.68rem;
   }
 
   .dpy-action-layer {
