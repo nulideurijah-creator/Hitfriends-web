@@ -15,6 +15,8 @@ export type PlayerIdentity = {
   name: string;
   createdAt?: string;
   score?: number;
+  gamesPlayed?: number;
+  wins?: number;
   avatarUrl?: string;
 };
 
@@ -37,6 +39,8 @@ export type RoomPlayer = {
   isHost: boolean;
   multiplier: number;
   score: number;
+  gamesPlayed: number;
+  wins: number;
 };
 
 export type RoomPhaseData = {
@@ -217,6 +221,8 @@ function normalizeRoomPlayer(raw: Partial<RoomPlayer>, index: number): RoomPlaye
     isHost: Boolean(raw.isHost ?? index === 0),
     multiplier: Number(raw.multiplier ?? 1),
     score: Number(raw.score ?? 0),
+    gamesPlayed: Number(raw.gamesPlayed ?? 0),
+    wins: Number(raw.wins ?? 0),
   };
 }
 
@@ -230,7 +236,9 @@ function toRoomPlayer(player: PlayerIdentity, index: number, isHost = false): Ro
     seatIndex: index,
     isHost,
     multiplier: 1,
-    score: Number(player.score ?? 0),
+    score: 0,
+    gamesPlayed: Number(player.gamesPlayed ?? 0),
+    wins: Number(player.wins ?? 0),
   };
 }
 
@@ -239,6 +247,8 @@ function withLatestPlayerIdentity(roomPlayer: RoomPlayer, player: PlayerIdentity
     ...roomPlayer,
     name: player.name,
     avatarUrl: player.avatarUrl,
+    gamesPlayed: Number(player.gamesPlayed ?? roomPlayer.gamesPlayed ?? 0),
+    wins: Number(player.wins ?? roomPlayer.wins ?? 0),
   };
 }
 
@@ -322,6 +332,18 @@ function getEffectiveBombers(room: GameRoom, state: GameState) {
   const hasActiveBombMultiplier = bombers.some((playerId) => (multiplierByPlayer.get(playerId) ?? 1) > 1);
 
   return hasActiveBombMultiplier ? bombers : [];
+}
+
+function getRoundWinnerIds(room: GameRoom, state: GameState) {
+  if (!state.winner) return [];
+
+  const bombers = getEffectiveBombers(room, state);
+  if (bombers.length === 0) return [state.winner];
+
+  const bomberIds = new Set(bombers);
+  if (bomberIds.has(state.winner)) return [state.winner];
+
+  return state.players.filter((player) => !bomberIds.has(player.id)).map((player) => player.id);
 }
 
 function calculateRoomScoreDelta(room: GameRoom, state: GameState, winnerId: string): Record<string, number> {
@@ -456,31 +478,36 @@ async function updateRoomWithVersion(roomId: string, oldVersion: number, patch: 
 }
 
 async function updateProfilesFromDelta(room: GameRoom) {
-  if (room.mode !== "ladder") return;
+  const state = room.state;
+  if (!state) return;
 
-  const delta = room.state?.lastScoreDelta;
-  if (!delta) return;
+  const delta = state.lastScoreDelta ?? {};
+  const winnerIds = new Set(getRoundWinnerIds(room, state));
 
   const supabase = getSupabaseClient();
   await Promise.all(
-    Object.entries(delta).map(async ([playerId, scoreDelta]) => {
+    state.players.map(async (player) => {
+      const playerId = player.id;
+      const scoreDelta = Number(delta[playerId] ?? 0);
       const { data } = await supabase.from("profiles").select("*").eq("id", playerId).maybeSingle();
       if (!data) return;
 
-      const nextScore = Number(data.score ?? 0) + scoreDelta;
       const nextGames = Number(data.games_played ?? 0) + 1;
-      const nextWins = Number(data.wins ?? 0) + (room.state?.winner === playerId ? 1 : 0);
-      const nextBest = Math.max(Number(data.best_single_score ?? 0), scoreDelta);
+      const nextWins = Number(data.wins ?? 0) + (winnerIds.has(playerId) ? 1 : 0);
+      const patch: Record<string, unknown> = {
+        games_played: nextGames,
+        wins: nextWins,
+        updated_at: nowIso(),
+      };
+
+      if (room.mode === "ladder") {
+        patch.score = Number(data.score ?? 0) + scoreDelta;
+        patch.best_single_score = Math.max(Number(data.best_single_score ?? 0), scoreDelta);
+      }
 
       await supabase
         .from("profiles")
-        .update({
-          score: nextScore,
-          games_played: nextGames,
-          wins: nextWins,
-          best_single_score: nextBest,
-          updated_at: nowIso(),
-        })
+        .update(patch)
         .eq("id", playerId);
     }),
   );
@@ -1036,7 +1063,16 @@ export async function applyRoomAction(roomId: string, action: GameAction): Promi
   }
 
   const phase: RoomPhase = result.gameStatus === "finished" ? "finished" : "playing";
-  const syncedPlayers = syncPlayersWithState(room.players, result);
+  const roundWinnerIds = phase === "finished" ? new Set(getRoundWinnerIds(room, result)) : null;
+  const syncedPlayers = syncPlayersWithState(room.players, result).map((player) =>
+    roundWinnerIds
+      ? {
+          ...player,
+          gamesPlayed: Number(player.gamesPlayed ?? 0) + 1,
+          wins: Number(player.wins ?? 0) + (roundWinnerIds.has(player.id) ? 1 : 0),
+        }
+      : player,
+  );
   const scoreHistory = phase === "finished" ? appendScoreHistory(room, result, syncedPlayers) : room.scoreHistory;
   const phaseData: RoomPhaseData =
     phase === "finished"

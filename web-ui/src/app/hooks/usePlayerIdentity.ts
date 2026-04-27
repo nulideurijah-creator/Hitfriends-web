@@ -12,6 +12,8 @@ export function usePlayerIdentity() {
       name: user.nickname,
       createdAt: user.createdAt,
       score: user.score,
+      gamesPlayed: user.gamesPlayed,
+      wins: user.wins,
       avatarUrl: user.avatar,
     };
   }, [user]);

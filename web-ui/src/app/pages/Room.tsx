@@ -53,7 +53,7 @@ type SeatView = {
   name: string;
   avatarUrl?: string;
   handCount: number;
-  score: number;
+  winRate: string;
   multiplier: number;
   ready: boolean;
   isHost: boolean;
@@ -1060,15 +1060,14 @@ function TableSeat({ seat }: { seat: SeatView }) {
         <div className="dpy-seat-avatar">
           {seat.avatarUrl ? <img src={seat.avatarUrl} alt={seat.name} /> : <span>{seat.name.slice(0, 1)}</span>}
         </div>
-        <div className="dpy-mobile-card-count">{seat.handCount}张</div>
-        <div className="dpy-mobile-score-count">{seat.score}分</div>
+        <div className="dpy-mobile-seat-stats">{seat.handCount}张 · {seat.winRate}</div>
         {seat.isTurn && <div className="dpy-turn-star"><Sparkles className="h-4 w-4" /></div>}
         {seat.isHost && <div className="dpy-host-crown"><Crown className="h-4 w-4" /></div>}
       </div>
       <div className="dpy-seat-info">
         <div className="max-w-28 truncate text-sm font-black text-white">{seat.name}{seat.isMe ? "（我）" : ""}</div>
         <div className="flex items-center gap-2 text-xs font-black">
-          <span className="text-amber-200">{seat.score} 分</span>
+          <span className="text-amber-200">胜率 {seat.winRate}</span>
           <span className="rounded bg-red-500 px-1.5 py-0.5 text-white">{seat.multiplier}倍</span>
           <span className="text-sky-100">{seat.handCount}张</span>
         </div>
@@ -1419,6 +1418,12 @@ function syncSettlementPlayers(room: GameRoom, state: EngineGameState | null) {
   });
 }
 
+function formatWinRate(wins?: number, gamesPlayed?: number) {
+  const total = Number(gamesPlayed ?? 0);
+  if (!total) return "0%";
+  return `${Math.round((Number(wins ?? 0) / total) * 100)}%`;
+}
+
 function buildSeats(room: GameRoom | null, state: EngineGameState | null, playerId: string | undefined, phase: RoomPhase, watchedPlayerId?: string | null): SeatView[] {
   const roomPlayers = [...(room?.players ?? [])].sort((a, b) => a.seatIndex - b.seatIndex);
   if (roomPlayers.length === 0) return [];
@@ -1447,7 +1452,7 @@ function buildSeats(room: GameRoom | null, state: EngineGameState | null, player
       name: candidate.name,
       avatarUrl: candidate.avatarUrl,
       handCount: phase === "waiting_ready" ? 0 : gamePlayer?.hand.length ?? 0,
-      score: gamePlayer?.score ?? candidate.score,
+      winRate: formatWinRate(candidate.wins, candidate.gamesPlayed),
       multiplier: gamePlayer?.multiplier ?? candidate.multiplier ?? 1,
       ready: candidate.ready,
       isHost: candidate.isHost,

@@ -196,7 +196,7 @@ export function Profile() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs text-neutral-500">你的房间积分</div>
+                        <div className="text-xs text-neutral-500">本次结算积分</div>
                         <div className={`text-xl font-black ${Number(self?.score ?? 0) >= 0 ? "text-amber-300" : "text-red-300"}`}>
                           {self?.score ?? 0}
                         </div>
@@ -205,7 +205,7 @@ export function Profile() {
                     <div className="mb-3 flex flex-wrap gap-2 text-xs text-neutral-300">
                       {record.participants.map((participant) => (
                         <span key={participant.id} className="rounded-full bg-black/25 px-2 py-1">
-                          {participant.name} {participant.score} ({formatSigned(participant.lastDelta)})
+                          {participant.name} 最终 {participant.score} ({formatSigned(participant.lastDelta)})
                         </span>
                       ))}
                     </div>
