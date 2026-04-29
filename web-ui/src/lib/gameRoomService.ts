@@ -439,26 +439,112 @@ function createSettlementSnapshot(room: GameRoom, settledBy: string, remainingPl
   };
 }
 
+function ensureFinishedRoundScored(room: GameRoom): GameRoom {
+  const state = room.state;
+  if (!state || state.gameStatus !== "finished" || !state.winner) return room;
+
+  const playerIds = state.players.map((player) => player.id);
+  const lastEntry = room.scoreHistory.at(-1);
+  const entryMatchesCurrentState =
+    Boolean(lastEntry) &&
+    lastEntry?.winnerId === state.winner &&
+    playerIds.every((playerId) => {
+      const gamePlayer = state.players.find((player) => player.id === playerId);
+      return Number(lastEntry?.totals?.[playerId] ?? Number.NaN) === Number(gamePlayer?.score ?? Number.NaN);
+    });
+
+  if (entryMatchesCurrentState && lastEntry) {
+    const stateWithDelta = state.lastScoreDelta
+      ? state
+      : {
+          ...state,
+          lastScoreDelta: lastEntry.deltas,
+        };
+
+    return {
+      ...room,
+      state: stateWithDelta,
+      players: syncPlayersWithState(room.players, stateWithDelta),
+      phaseData: {
+        ...room.phaseData,
+        scoreHistory: room.scoreHistory,
+      },
+    };
+  }
+
+  const scoredState = state.lastScoreDelta ? state : applyRoomScoreDelta(room, state);
+  const players = syncPlayersWithState(room.players, scoredState);
+  const scoreHistory = appendScoreHistory(room, scoredState, players);
+
+  return {
+    ...room,
+    state: scoredState,
+    players,
+    scoreHistory,
+    phaseData: {
+      ...room.phaseData,
+      scoreHistory,
+    },
+  };
+}
+
 async function persistSettlementRecord(snapshot: SettlementSnapshot) {
   const supabase = getSupabaseClient();
   const participantIds = snapshot.players.map((player) => player.id);
-  const { error } = await supabase.from(SETTLEMENTS_TABLE).upsert(
-    {
-      room_id: snapshot.roomId,
-      mode: snapshot.mode,
-      room_session_id: snapshot.roomSessionId,
-      participant_signature: participantSignature(snapshot.players),
-      participant_ids: participantIds,
-      participants: snapshot.players,
-      score_history: snapshot.scoreHistory,
-      winner_id: snapshot.winnerId,
-      settled_by: snapshot.settledBy,
-      settled_at: snapshot.settledAt,
-    },
-    { onConflict: "room_id,room_session_id,participant_signature" },
-  );
+  const payload = {
+    room_id: snapshot.roomId,
+    mode: snapshot.mode,
+    room_session_id: snapshot.roomSessionId,
+    participant_signature: participantSignature(snapshot.players),
+    participant_ids: participantIds,
+    participants: snapshot.players,
+    score_history: snapshot.scoreHistory,
+    winner_id: snapshot.winnerId,
+    settled_by: snapshot.settledBy,
+    settled_at: snapshot.settledAt,
+  };
 
-  if (error) throw error;
+  const { error } = await supabase
+    .from(SETTLEMENTS_TABLE)
+    .insert(payload)
+    .select("id")
+    .maybeSingle();
+
+  if (!error) return { created: true };
+  if (error.code === "23505") return { created: false };
+  throw error;
+}
+
+async function applySettlementToProfiles(snapshot: SettlementSnapshot) {
+  const supabase = getSupabaseClient();
+
+  await Promise.all(
+    snapshot.players.map(async (player) => {
+      const entries = snapshot.scoreHistory.filter(
+        (entry) => player.id in (entry.deltas ?? {}) || player.id in (entry.totals ?? {}),
+      );
+      if (entries.length === 0) return;
+
+      const gamesDelta = entries.length;
+      const winsDelta = entries.filter((entry) => Number(entry.deltas?.[player.id] ?? 0) > 0 || entry.winnerId === player.id).length;
+      const bestRoundDelta = Math.max(0, ...entries.map((entry) => Number(entry.deltas?.[player.id] ?? 0)));
+      const { data } = await supabase.from("profiles").select("*").eq("id", player.id).maybeSingle();
+      if (!data) return;
+
+      const patch: Record<string, unknown> = {
+        games_played: Number(data.games_played ?? 0) + gamesDelta,
+        wins: Number(data.wins ?? 0) + winsDelta,
+        updated_at: nowIso(),
+      };
+
+      if (snapshot.mode === "ladder") {
+        patch.score = Number(data.score ?? 0) + Number(player.score ?? 0);
+        patch.best_single_score = Math.max(Number(data.best_single_score ?? 0), bestRoundDelta);
+      }
+
+      await supabase.from("profiles").update(patch).eq("id", player.id);
+    }),
+  );
 }
 
 async function updateRoomWithVersion(roomId: string, oldVersion: number, patch: Partial<GameRoom>) {
@@ -476,42 +562,6 @@ async function updateRoomWithVersion(roomId: string, oldVersion: number, patch: 
 
   if (error) throw error;
   return data ? normalizeRoom(data as GameRoomRow) : null;
-}
-
-async function updateProfilesFromDelta(room: GameRoom) {
-  const state = room.state;
-  if (!state) return;
-
-  const delta = state.lastScoreDelta ?? {};
-  const winnerIds = new Set(getRoundWinnerIds(room, state));
-
-  const supabase = getSupabaseClient();
-  await Promise.all(
-    state.players.map(async (player) => {
-      const playerId = player.id;
-      const scoreDelta = Number(delta[playerId] ?? 0);
-      const { data } = await supabase.from("profiles").select("*").eq("id", playerId).maybeSingle();
-      if (!data) return;
-
-      const nextGames = Number(data.games_played ?? 0) + 1;
-      const nextWins = Number(data.wins ?? 0) + (winnerIds.has(playerId) ? 1 : 0);
-      const patch: Record<string, unknown> = {
-        games_played: nextGames,
-        wins: nextWins,
-        updated_at: nowIso(),
-      };
-
-      if (room.mode === "ladder") {
-        patch.score = Number(data.score ?? 0) + scoreDelta;
-        patch.best_single_score = Math.max(Number(data.best_single_score ?? 0), scoreDelta);
-      }
-
-      await supabase
-        .from("profiles")
-        .update(patch)
-        .eq("id", playerId);
-    }),
-  );
 }
 
 function activePlayerIds(room: GameRoom) {
@@ -1098,8 +1148,7 @@ export async function applyRoomAction(roomId: string, action: GameAction): Promi
   }
 
   if (phase === "finished") {
-    await updateProfilesFromDelta(saved).catch(() => undefined);
-    await sendSystemMessage(room.id, "本局结束，积分已写入排行榜。");
+    await sendSystemMessage(room.id, "本局结束，房间积分已结算。");
   }
 
   return { ok: true, room: saved };
@@ -1221,10 +1270,14 @@ export async function settleAndLeaveRoom(roomId: string, playerId: string): Prom
     const actor = room.players.find((player) => player.id === playerId);
     if (!actor) throw new Error("只有牌局玩家可以结算牌局。");
 
-    const syncedRoom: GameRoom = { ...room, players: syncPlayersWithState(room.players, room.state) };
+    const scoredRoom = ensureFinishedRoundScored(room);
+    const syncedRoom: GameRoom = { ...scoredRoom, players: syncPlayersWithState(scoredRoom.players, scoredRoom.state) };
     const remainingPlayers = syncedRoom.players.filter((player) => player.id !== playerId);
     const snapshot = createSettlementSnapshot(syncedRoom, playerId, remainingPlayers.length);
-    await persistSettlementRecord(snapshot);
+    const settlementRecord = await persistSettlementRecord(snapshot);
+    if (settlementRecord.created) {
+      await applySettlementToProfiles(snapshot);
+    }
 
     if (remainingPlayers.length === 0) {
       const { error } = await getSupabaseClient().from(ROOMS_TABLE).delete().eq("id", roomId);
@@ -1240,11 +1293,12 @@ export async function settleAndLeaveRoom(roomId: string, playerId: string): Prom
       phaseData: {
         phaseStartedAt: nowIso(),
         roomSessionId: createRoomSessionId(),
-        settlementIndex: (room.phaseData.settlementIndex ?? 0) + 1,
+        settlementIndex: (scoredRoom.phaseData.settlementIndex ?? 0) + 1,
         readyAtByPlayer: {},
         scoreHistory: [],
         notice: `${actor.name} 已结算离开，剩余玩家可准备下一局。`,
       },
+      scoreHistory: [],
     });
 
     if (saved) {

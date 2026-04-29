@@ -1,9 +1,10 @@
 import { Link, NavLink, useNavigate } from "react-router";
 import type { ReactNode } from "react";
-import { Crown, LogOut, Play, User } from "lucide-react";
+import { Crown, LogOut, User } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { cn } from "../../lib/utils";
 import { DonationButton } from "./DonationButton";
+import { BrandLogo } from "./BrandLogo";
 
 export function Navbar() {
   const navigate = useNavigate();
@@ -18,11 +19,8 @@ export function Navbar() {
     <nav className="sticky top-0 z-50 h-16 border-b border-white/10 bg-neutral-950/90 px-3 backdrop-blur sm:px-6">
       <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-4 lg:gap-8">
-          <Link to="/" className="flex items-center gap-2 text-xl font-black tracking-wide text-white">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-lg shadow-indigo-600/20">
-              <Play className="h-5 w-5 fill-current" />
-            </span>
-            <span className="whitespace-nowrap">打朋友</span>
+          <Link to="/" className="flex items-center text-white" aria-label="打朋友首页">
+            <BrandLogo compact />
           </Link>
           <div className="hidden items-center gap-1 md:flex">
             <NavItem to="/lobby">大厅</NavItem>
@@ -41,7 +39,7 @@ export function Navbar() {
                 to="/profile"
                 className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-2 text-neutral-200 hover:bg-white/[0.08] sm:gap-3 sm:px-3"
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-md bg-indigo-500/15 text-indigo-300">
+                <span className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-500/15 text-emerald-200">
                   <User className="h-4 w-4" />
                 </span>
                 <span className="hidden leading-tight sm:block">
@@ -66,7 +64,7 @@ export function Navbar() {
               >
                 登录
               </Link>
-              <Link to="/register" className="rounded-lg bg-indigo-600 px-3 py-2 font-bold text-white hover:bg-indigo-500">
+              <Link to="/register" className="rounded-lg bg-emerald-600 px-3 py-2 font-bold text-white hover:bg-emerald-500">
                 注册
               </Link>
             </>

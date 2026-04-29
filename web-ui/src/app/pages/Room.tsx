@@ -163,6 +163,7 @@ export function Room() {
     room,
     state,
     swapChoice,
+    mySwapSelection,
   });
 
   useEffect(() => {
@@ -222,7 +223,7 @@ export function Room() {
   function toggleCard(card: Card) {
     if (isSpectatorMode) return;
     if (!canSeeHand) return;
-    if (phase === "swap_select") {
+    if (phase === "swap_select" && !mySwapSelection) {
       setSelectedCardIds((ids) => (ids.includes(card.id) ? [] : [card.id]));
       return;
     }
@@ -248,6 +249,10 @@ export function Room() {
 
   async function handleSwapSubmit() {
     if (isSpectatorMode) return;
+    if (mySwapSelection) {
+      setLocalError("换牌已确认，已锁定的牌不会再被更改。");
+      return;
+    }
     if (selectedCardIds.length !== 1) {
       setLocalError("换牌阶段只能选择 1 张牌。");
       return;
@@ -923,7 +928,8 @@ function HandDock({
       <div className="dpy-hand-rack" style={rackStyle}>
         {cards.map((card, index) => {
           const selected = selectedCardIds.includes(card.id);
-          const pendingSwap = phase === "swap_select" && (selected || mySwapSelection === card.id);
+          const pendingSwap = phase === "swap_select" && !mySwapSelection && selected;
+          const lockedSwap = phase === "swap_select" && mySwapSelection === card.id;
           const swappedIn = swappedInCardId === card.id && phase !== "swap_select";
           return (
             <RackCard
@@ -931,6 +937,7 @@ function HandDock({
               card={card}
               disabled={disabled}
               left={index * rackLayout.spacing}
+              lockedSwap={lockedSwap}
               pendingSwap={pendingSwap}
               selected={selected}
               swappedIn={swappedIn}
@@ -968,6 +975,7 @@ function RackCard({
   card,
   disabled,
   left,
+  lockedSwap,
   onClick,
   pendingSwap,
   selected,
@@ -977,6 +985,7 @@ function RackCard({
   card: Card;
   disabled: boolean;
   left: number;
+  lockedSwap: boolean;
   onClick: () => void;
   pendingSwap: boolean;
   selected: boolean;
@@ -989,10 +998,10 @@ function RackCard({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={cn("dpy-rack-card", selected && "is-selected", pendingSwap && "is-swap", swappedIn && "is-swapped", disabled && "is-disabled")}
+      className={cn("dpy-rack-card", selected && "is-selected", (pendingSwap || lockedSwap) && "is-swap", lockedSwap && "is-locked-swap", swappedIn && "is-swapped", disabled && "is-disabled")}
       style={{ left, zIndex }}
     >
-      {(pendingSwap || swappedIn) && <span className="dpy-card-tag">{pendingSwap ? "待交换" : "交换获得"}</span>}
+      {(pendingSwap || lockedSwap || swappedIn) && <span className="dpy-card-tag">{lockedSwap ? "已锁定" : pendingSwap ? "待确认" : "交换获得"}</span>}
       <span className={cn("dpy-rack-corner", red ? "text-red-600" : "text-neutral-950")}>
         <span>{card.rank}</span>
         <span>{suitLabels[card.suit]}</span>
@@ -1062,9 +1071,7 @@ function TableSeat({ seat }: { seat: SeatView }) {
         <div className="dpy-seat-avatar">
           {seat.avatarUrl ? <img src={seat.avatarUrl} alt={seat.name} /> : <span>{seat.name.slice(0, 1)}</span>}
         </div>
-        <div className="dpy-mobile-seat-stats">
-          {seat.handCount}张 · {seat.winRate} · <span className={scoreToneClass(seat.batchScore)}>{formatSigned(seat.batchScore)}</span>
-        </div>
+        <MobileSeatStats seat={seat} />
         {seat.isTurn && <div className="dpy-turn-star"><Sparkles className="h-4 w-4" /></div>}
         {seat.isHost && <div className="dpy-host-crown"><Crown className="h-4 w-4" /></div>}
       </div>
@@ -1083,6 +1090,18 @@ function TableSeat({ seat }: { seat: SeatView }) {
         </div>
         <div className="text-[11px] font-black text-emerald-200">{seat.ready ? "已准备" : seat.status}</div>
       </div>
+    </div>
+  );
+}
+
+function MobileSeatStats({ seat }: { seat: SeatView }) {
+  return (
+    <div className="dpy-mobile-seat-stats">
+      <span className="dpy-mobile-seat-line">{seat.handCount}张 · 胜率 {seat.winRate}</span>
+      <span className={cn("dpy-mobile-seat-line dpy-mobile-seat-score", scoreToneClass(seat.batchScore))}>
+        积分 {formatSigned(seat.batchScore)}
+        {seat.lastDelta !== null ? ` · 本局 ${formatSigned(seat.lastDelta)}` : ""}
+      </span>
     </div>
   );
 }
@@ -1278,7 +1297,7 @@ function SettlementDialog({
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-black text-white">结算牌局</h2>
-            <p className="mt-1 text-sm text-amber-100/55">确认后会记录本批玩家积分并离开房间；房间会保留给剩余玩家继续游戏。</p>
+            <p className="mt-1 text-sm text-amber-100/55">确认后会正式记录本批积分，并更新个人统计；天梯房会同步进入全服积分榜，然后你将离开本批牌局。</p>
           </div>
           <button onClick={onClose} disabled={busy} className="rounded-lg border border-white/10 px-3 py-2 text-sm font-black text-white/70 hover:bg-white/10">
             取消
@@ -1502,6 +1521,7 @@ function createTableNotice({
   room,
   state,
   swapChoice,
+  mySwapSelection,
 }: {
   bombers: string[];
   bombChoice: boolean | null;
@@ -1513,6 +1533,7 @@ function createTableNotice({
   room: GameRoom | null;
   state: EngineGameState | null;
   swapChoice: boolean | null;
+  mySwapSelection?: string;
 }): TableNotice {
   if (error) {
     return { title: error, subtitle: "", tone: "danger", icon: <AlertTriangle className="h-6 w-6" /> };
@@ -1538,7 +1559,13 @@ function createTableNotice({
     };
   }
   if (phase === "swap_select") {
-    return { title: "选择 1 张牌交换", subtitle: "", tone: "warning", icon: <Sparkles className="h-6 w-6" /> };
+    return {
+      title: mySwapSelection ? "换牌已锁定" : "选择 1 张牌交换",
+      subtitle: mySwapSelection ? "你已确认交换牌，继续点其他手牌不会改变锁定牌" : "确认后该牌会锁定为本次交换牌",
+      tone: "warning",
+      icon: <Sparkles className="h-6 w-6" />,
+      voteItems: buildSwapSelectionNoticeItems(room, playerId, room?.phaseData.swapSelections, mySwapSelection),
+    };
   }
   if (phase === "bomb_vote") {
     return {
@@ -1562,6 +1589,30 @@ function createTableNotice({
     tone: state?.currentTurn === playerId ? "success" : "normal",
     icon: <Sparkles className="h-6 w-6" />,
   };
+}
+
+function buildSwapSelectionNoticeItems(
+  room: GameRoom | null,
+  playerId: string | null,
+  selections: Record<string, string> | undefined,
+  localSelection?: string,
+): VoteNoticeItem[] {
+  return [...(room?.players ?? [])]
+    .sort((a, b) => a.seatIndex - b.seatIndex)
+    .map((player) => {
+      const confirmedCardId = selections?.[player.id];
+      const isMe = player.id === playerId;
+      const confirmed = Boolean(confirmedCardId);
+      const locallyReady = isMe && Boolean(localSelection);
+      return {
+        id: player.id,
+        name: player.name,
+        label: confirmed || locallyReady ? "已选牌" : "待选牌",
+        tone: confirmed || locallyReady ? "active" : "pending",
+        confirmed,
+        isMe,
+      };
+    });
 }
 
 function buildVoteNoticeItems(

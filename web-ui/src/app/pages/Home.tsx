@@ -4,6 +4,7 @@ import { ArrowRight, Eye, Loader2, Play, Plus, Trophy, Users } from "lucide-reac
 import { createRoom } from "../../lib/gameRoomService";
 import { isSupabaseConfigured } from "../../lib/supabase";
 import { useAuth } from "../context/AuthContext";
+import { BrandLogo } from "../components/BrandLogo";
 import { DonationButton } from "../components/DonationButton";
 
 export function Home() {
@@ -27,6 +28,8 @@ export function Home() {
         name: user.nickname,
         createdAt: user.createdAt,
         score: user.score,
+        gamesPlayed: user.gamesPlayed,
+        wins: user.wins,
         avatarUrl: user.avatar,
       });
       navigate(`/room/${room.id}`);
@@ -51,11 +54,10 @@ export function Home() {
             <Users className="h-4 w-4" />
             2-4 人实时联机 · 支持观战聊天
           </div>
-          <h1 className="max-w-3xl text-5xl font-black leading-tight tracking-normal text-white sm:text-6xl md:text-7xl">
-            打朋友
-          </h1>
+          <BrandLogo className="max-w-full" />
           <p className="mt-5 max-w-2xl text-lg leading-8 text-neutral-300">
-            熟人开房、换牌博弈、拍炸抢拍、全服积分榜。所有对局状态由 Supabase 同步，出牌规则由标准引擎统一裁决。
+            熟人开房、换牌博弈、拍炸抢拍、全服积分榜。所有对局状态由 Supabase
+            同步，出牌规则由标准引擎统一裁决。
           </p>
 
           {!isSupabaseConfigured && (
@@ -106,8 +108,8 @@ export function Home() {
             </div>
             <div className="grid gap-3">
               <QuickLink icon={<Users className="h-5 w-5" />} title="坐下打牌" desc="登录后创建或加入房间" to="/lobby" />
-              <QuickLink icon={<Eye className="h-5 w-5" />} title="观战聊天" desc="进入房间旁观公共牌桌" to="/lobby" />
-              <QuickLink icon={<Trophy className="h-5 w-5" />} title="冲全服榜" desc="开服以来累计积分排名" to="/leaderboard" />
+              <QuickLink icon={<Eye className="h-5 w-5" />} title="观战聊天" desc="进入房间旁观公共牌局" to="/lobby" />
+              <QuickLink icon={<Trophy className="h-5 w-5" />} title="冲全服榜" desc="天梯模式结算后进入排行榜" to="/leaderboard" />
             </div>
           </div>
         </div>
