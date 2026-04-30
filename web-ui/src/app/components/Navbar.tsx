@@ -19,7 +19,7 @@ export function Navbar() {
     <nav className="sticky top-0 z-50 h-16 border-b border-white/10 bg-neutral-950/90 px-3 backdrop-blur sm:px-6">
       <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-4 lg:gap-8">
-          <Link to="/" className="flex items-center text-white" aria-label="打朋友首页">
+          <Link to="/" className="flex h-10 items-center text-white" aria-label="打朋友首页">
             <BrandLogo compact />
           </Link>
           <div className="hidden items-center gap-1 md:flex">

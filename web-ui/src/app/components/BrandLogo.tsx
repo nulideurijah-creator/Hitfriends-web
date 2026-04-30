@@ -1,4 +1,5 @@
-import logoImage2 from "../../assets/brand-logo-image2.png";
+import logoMark from "../../assets/brand-logo-mark.png";
+import logoWordmark from "../../assets/brand-logo-wordmark.png";
 import { cn } from "../../lib/utils";
 
 type BrandLogoProps = {
@@ -9,27 +10,20 @@ type BrandLogoProps = {
 export function BrandLogo({ compact = false, className }: BrandLogoProps) {
   if (compact) {
     return (
-      <span className={cn("inline-flex items-center gap-2", className)}>
-        <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-xl border border-amber-300/35 bg-[#10241d] shadow-lg shadow-emerald-950/40">
-          <img
-            src={logoImage2}
-            alt=""
-            aria-hidden="true"
-            className="h-full max-w-none object-cover"
-            style={{ width: "290%", objectPosition: "left center" }}
-          />
-        </span>
-        <span className="whitespace-nowrap text-xl font-black tracking-normal text-white">打朋友</span>
+      <span className={cn("inline-flex h-10 items-center gap-2.5 leading-none", className)}>
+        <img src={logoMark} alt="" aria-hidden="true" className="h-9 w-9 shrink-0 object-contain" draggable={false} />
+        <span className="translate-y-[1px] whitespace-nowrap text-xl font-black tracking-normal text-white">打朋友</span>
       </span>
     );
   }
 
   return (
-    <img
-      src={logoImage2}
-      alt="打朋友"
-      className={cn("h-auto w-full max-w-[760px] select-none", className)}
-      draggable={false}
-    />
+    <span className={cn("relative isolate inline-flex max-w-[760px] items-center", className)}>
+      <span
+        aria-hidden="true"
+        className="absolute inset-x-[9%] inset-y-[18%] -z-10 rounded-full bg-[radial-gradient(circle,rgba(216,182,90,0.2),rgba(34,197,94,0.1)_48%,transparent_72%)] blur-3xl"
+      />
+      <img src={logoWordmark} alt="打朋友" className="h-auto w-full select-none object-contain" draggable={false} />
+    </span>
   );
 }
